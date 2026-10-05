@@ -1,0 +1,21 @@
+{
+  "sourceRepository": "https://github.com/Zennmn/AM-plus-plus",
+  "sourceCommit": "75dde33e51c6c724c4697d25f5c7788b3e7a8099",
+  "artifacts": [
+    {
+      "file": "ampp-plugin-api-v1.jar",
+      "classPrefix": "dev/amenhancer/plugin/api/",
+      "sha256": "a0471a9b3480f4e90451402cfd9ed18cec50fccc24f07ccf4b89088911401341"
+    },
+    {
+      "file": "ampp-backdrop-host.jar",
+      "classPrefix": "com/kyant/backdrop/",
+      "sha256": "94770edc041a3d3f660be5c873fae7954c998174ae0e2575d843b8b2120ee032"
+    },
+    {
+      "file": "ampp-liquid-controls-host.jar",
+      "classPrefix": "com/kyant/backdrop/catalog/",
+      "sha256": "d478da33f7197ab09435c099e179249ec9409a00b5cb33688040949837d3d27f"
+    }
+  ]
+}

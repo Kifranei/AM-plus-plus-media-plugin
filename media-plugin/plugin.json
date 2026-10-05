@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "apiVersion": 1,
+  "id": "dev.kifranei.ampp.media",
+  "name": "AM 媒体增强",
+  "author": "Kifranei",
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "entryClass": "dev.kifranei.ampp.media.MediaIntegrationsPlugin",
+  "minAndroidApi": 28,
+  "description": "词幕、iOS 媒体控制按钮、AM 原生歌词卡片分享与玻璃音质弹窗；已适配 Apple Music 7.0.0-beta / 1606。各功能在插件设置中独立启用。"
+}
