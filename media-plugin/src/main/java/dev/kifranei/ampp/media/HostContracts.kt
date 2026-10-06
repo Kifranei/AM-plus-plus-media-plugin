@@ -24,6 +24,7 @@ internal object PluginProfiles {
         "void" -> Void.TYPE
         "int" -> Integer.TYPE
         "long" -> java.lang.Long.TYPE
+        "float" -> java.lang.Float.TYPE
         "boolean" -> java.lang.Boolean.TYPE
         else -> loader.loadClass(name)
     }
@@ -36,6 +37,13 @@ internal object PluginProfiles {
             isAccessible = true
         }
     }
+    fun field(key: String): java.lang.reflect.Field {
+        val contract = document.getJSONObject("indexed").getJSONObject("fieldContracts").getJSONObject(key)
+        return type(contract.getString("owner")).getDeclaredField(contract.getString("name")).apply {
+            check(type == PluginProfiles.type(contract.getString("type")) && !Modifier.isStatic(modifiers))
+            isAccessible = true
+        }
+    }
 }
 internal sealed interface TargetCapabilityInstall {
     val message: String
@@ -45,7 +53,7 @@ internal sealed interface TargetCapabilityInstall {
 internal fun interface LyriconTarget { fun install(): TargetCapabilityInstall }
 internal fun interface PlayerAudioOutputTarget { fun install(): TargetCapabilityInstall }
 internal fun interface AudioQualityDialogTarget { fun install(present: (AudioQualityDialogSurface) -> Boolean): TargetCapabilityInstall }
-internal fun interface LyricsSharingTarget { fun install(export: (LyricsShareImage, Boolean) -> Unit): TargetCapabilityInstall }
+internal fun interface CardSharingTarget { fun install(export: (NativeShareImage, Boolean) -> Unit): TargetCapabilityInstall }
 
 internal data class SongIdentity(val appleMusicId: Long)
 internal data class CurrentSong(val item: Any, val details: SongIdentity)
