@@ -4,7 +4,9 @@
     "buttonClass": "com.apple.android.music.player.mediarouter.cast.CustomMediaRouteButton",
     "buttonId": "media_route_button",
     "lyricsId": "player_lyrics",
-    "layout": "constraint_player_media_controls"
+    "layout": "constraint_player_media_controls",
+    "playerRootId": "player_root",
+    "shareplayId": "shareplay_badge"
   },
   "lyricon": {
     "viewModelClass": "com.apple.android.music.player.viewmodel.PlayerLyricsViewModel",
@@ -26,8 +28,12 @@
     "encodingId": "encoding_info",
     "sourceId": "source_info"
   },
-  "lyricsSharing": {
+  "cardSharing": {
     "fragmentClass": "com.apple.android.music.common.actionsheet.lyrics.ShareLyricsActionSheetFragment",
+    "songContentTypes": [
+      1,
+      36
+    ],
     "sourceClass": "com.apple.android.music.common.actionsheet.T",
     "sourceListField": "a",
     "optionClass": "com.apple.android.music.common.actionsheet.T$a",
@@ -77,6 +83,60 @@
     },
     "fields": {},
     "methodContracts": {
+      "player-pane-view-created": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "onViewCreated",
+        "parameters": [
+          "android.view.View",
+          "android.os.Bundle"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "player-fragment-parent": {
+        "owner": "androidx.fragment.app.m",
+        "name": "getParentFragment",
+        "parameters": [],
+        "returns": "androidx.fragment.app.m",
+        "static": false
+      },
+      "player-page-state-changed": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$i",
+        "name": "c",
+        "parameters": [
+          "android.view.View",
+          "int"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "song-sharing-create-view": {
+        "owner": "com.apple.android.music.common.actionsheet.S",
+        "name": "onCreateView",
+        "parameters": [
+          "android.view.LayoutInflater",
+          "android.view.ViewGroup",
+          "android.os.Bundle"
+        ],
+        "returns": "android.view.View",
+        "static": false
+      },
+      "audio-output-button-visibility": {
+        "owner": "androidx.mediarouter.app.c",
+        "name": "setVisibility",
+        "parameters": [
+          "int"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "audio-output-player-initialize": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "w1",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
       "lyrics-install-method": {
         "owner": "com.apple.android.music.player.fragment.PlayerLyricsViewFragment",
         "name": "w2",
@@ -352,13 +412,946 @@
         ],
         "returns": "void",
         "static": false
+      },
+      "player-controller-destroy-view": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "onDestroyView",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
+      "player-page-progress": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$i",
+        "name": "d",
+        "parameters": [
+          "float"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "player-controller-resume": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "onResume",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
+      "player-fragment-view": {
+        "owner": "androidx.fragment.app.m",
+        "name": "getView",
+        "parameters": [],
+        "returns": "android.view.View",
+        "static": false
+      },
+      "player-motion-outline": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$e",
+        "name": "getOutline",
+        "parameters": [
+          "android.view.View",
+          "android.graphics.Outline"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "more-dialog-create": {
+        "owner": "com.apple.android.music.common.actionsheet.ActionSheetDialogFragment",
+        "name": "onCreateDialog",
+        "parameters": [
+          "android.os.Bundle"
+        ],
+        "returns": "android.app.Dialog",
+        "static": false
+      },
+      "more-dialog-destroy": {
+        "owner": "com.apple.android.music.common.actionsheet.ActionSheetDialogFragment",
+        "name": "onDestroyView",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
+      "more-source-count": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "getItemCount",
+        "parameters": [],
+        "returns": "int",
+        "static": false
+      },
+      "more-source-at": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "getItemAtIndex",
+        "parameters": [
+          "int"
+        ],
+        "returns": "com.apple.android.music.model.CollectionItemView",
+        "static": false
+      },
+      "more-source-make-item": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "a",
+        "parameters": [
+          "android.content.Context",
+          "com.apple.android.music.common.actionsheet.B",
+          "com.apple.android.music.model.CollectionItemView"
+        ],
+        "returns": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "static": false
+      },
+      "more-action-click": {
+        "owner": "com.apple.android.music.common.actionsheet.d",
+        "name": "z",
+        "parameters": [
+          "int",
+          "android.view.View",
+          "com.apple.android.music.model.CollectionItemView"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "more-adapter-item-type": {
+        "owner": "Z6.d",
+        "name": "f",
+        "parameters": [
+          "int"
+        ],
+        "returns": "int",
+        "static": false
+      },
+      "more-adapter-create-holder": {
+        "owner": "Z6.d",
+        "name": "m",
+        "parameters": [
+          "android.view.ViewGroup",
+          "int"
+        ],
+        "returns": "androidx.recyclerview.widget.RecyclerView$D",
+        "static": false
+      },
+      "more-adapter-bind-holder": {
+        "owner": "Z6.b",
+        "name": "l",
+        "parameters": [
+          "androidx.recyclerview.widget.RecyclerView$D",
+          "int",
+          "java.util.List"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "more-item-title": {
+        "owner": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "name": "getTitle",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "more-item-subtitle": {
+        "owner": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "name": "getSubTitle",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "more-item-icon": {
+        "owner": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "name": "getIconDrawable",
+        "parameters": [],
+        "returns": "android.graphics.drawable.Drawable",
+        "static": false
+      },
+      "more-item-enabled": {
+        "owner": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "name": "isEnabled",
+        "parameters": [],
+        "returns": "boolean",
+        "static": false
+      },
+      "more-item-checked": {
+        "owner": "com.apple.android.music.model.CommonHeaderCollectionItem",
+        "name": "isShowCheckMark",
+        "parameters": [],
+        "returns": "boolean",
+        "static": false
+      },
+      "confirmation-dialog-create": {
+        "owner": "com.apple.android.music.commerce.fragments.c",
+        "name": "onCreateDialog",
+        "parameters": [
+          "android.os.Bundle"
+        ],
+        "returns": "android.app.Dialog",
+        "static": false
+      },
+      "player-background-detach": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "onDetachedFromWindow",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
+      "player-background-artwork": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "setArtwork",
+        "parameters": [
+          "android.graphics.Bitmap"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-entity-id": {
+        "owner": "com.apple.android.music.mediaapi.models.MediaEntity",
+        "name": "getId",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-entity-type": {
+        "owner": "com.apple.android.music.mediaapi.models.MediaEntity",
+        "name": "getType",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-attrs-artwork": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Attributes",
+        "name": "getArtwork",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.internals.Artwork",
+        "static": false
+      },
+      "content-download-attrs-editorial-artwork": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Attributes",
+        "name": "getEditorialArtwork",
+        "parameters": [],
+        "returns": "java.util.Map",
+        "static": false
+      },
+      "content-download-attrs-biography": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Attributes",
+        "name": "getArtistBio",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-attrs-notes": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Attributes",
+        "name": "getEditorialNotes",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.internals.EditorialNotes",
+        "static": false
+      },
+      "content-download-attrs-videos": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Attributes",
+        "name": "getEditorialVideo",
+        "parameters": [],
+        "returns": "java.util.Map",
+        "static": false
+      },
+      "content-download-artwork-url": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Artwork",
+        "name": "getUrl",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-artwork-width": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Artwork",
+        "name": "getWidth",
+        "parameters": [],
+        "returns": "java.lang.Integer",
+        "static": false
+      },
+      "content-download-artwork-height": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.Artwork",
+        "name": "getHeight",
+        "parameters": [],
+        "returns": "java.lang.Integer",
+        "static": false
+      },
+      "content-download-notes-standard": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.EditorialNotes",
+        "name": "getStandard",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-notes-short": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.EditorialNotes",
+        "name": "getShort",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-video-files": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.EditorialVideo",
+        "name": "getVideoFile",
+        "parameters": [],
+        "returns": "java.util.List",
+        "static": false
+      },
+      "content-download-video-hls": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.EditorialVideo",
+        "name": "getHlsVideoUrl",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-file-url": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.VideoFile",
+        "name": "getAssetUrl",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-file-width": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.VideoFile",
+        "name": "getWidth",
+        "parameters": [],
+        "returns": "java.lang.Integer",
+        "static": false
+      },
+      "content-download-file-height": {
+        "owner": "com.apple.android.music.mediaapi.models.internals.VideoFile",
+        "name": "getHeight",
+        "parameters": [],
+        "returns": "java.lang.Integer",
+        "static": false
+      },
+      "content-download-artist-model": {
+        "owner": "com.apple.android.music.profiles2.ArtistFragment",
+        "name": "G1",
+        "parameters": [],
+        "returns": "com.apple.android.music.profiles2.ArtistViewModel",
+        "static": false
+      },
+      "content-download-artist-data": {
+        "owner": "com.apple.android.music.profiles2.GenericProfileViewModel",
+        "name": "getData",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.MediaEntity",
+        "static": false
+      },
+      "content-download-artist-set-data": {
+        "owner": "com.apple.android.music.profiles2.GenericProfileViewModel",
+        "name": "setData",
+        "parameters": [
+          "com.apple.android.music.mediaapi.models.MediaEntity"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-artist-create-header": {
+        "owner": "com.apple.android.music.profiles2.GenericProfileViewModel",
+        "name": "createProfileHeaderData",
+        "parameters": [
+          "com.apple.android.music.mediaapi.models.MediaEntity"
+        ],
+        "returns": "com.apple.android.music.profiles.Y",
+        "static": false
+      },
+      "content-download-album-model": {
+        "owner": "com.apple.android.music.collection.mediaapi.fragment.AlbumFragment",
+        "name": "w1",
+        "parameters": [],
+        "returns": "com.apple.android.music.collection.mediaapi.viewmodel.AlbumViewModel",
+        "static": false
+      },
+      "content-download-fragment-view": {
+        "owner": "androidx.fragment.app.m",
+        "name": "getView",
+        "parameters": [],
+        "returns": "android.view.View",
+        "static": false
+      },
+      "content-download-fragment-activity": {
+        "owner": "androidx.fragment.app.m",
+        "name": "getActivity",
+        "parameters": [],
+        "returns": "androidx.fragment.app.r",
+        "static": false
+      },
+      "content-download-base-destroy-view": {
+        "owner": "com.apple.android.music.common.BaseActivityFragment",
+        "name": "onDestroyView",
+        "parameters": [],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-lyrics-parser": {
+        "owner": "com.apple.android.music.ttml.javanative.TTMLParser$TTMLParserNative",
+        "name": "songInfoFromTTML",
+        "parameters": [
+          "java.lang.String"
+        ],
+        "returns": "com.apple.android.music.ttml.javanative.model.SongInfo$SongInfoPtr",
+        "static": false
+      },
+      "content-download-compose-semantics": {
+        "owner": "androidx.compose.ui.platform.a",
+        "name": "getSemanticsOwner",
+        "parameters": [],
+        "returns": "w1.A",
+        "static": false
+      },
+      "content-download-semantics-root": {
+        "owner": "w1.A",
+        "name": "a",
+        "parameters": [],
+        "returns": "w1.x",
+        "static": false
+      },
+      "content-download-semantics-config": {
+        "owner": "w1.x",
+        "name": "k",
+        "parameters": [],
+        "returns": "w1.q",
+        "static": false
+      },
+      "content-download-semantics-children": {
+        "owner": "w1.x",
+        "name": "i",
+        "parameters": [
+          "boolean",
+          "boolean"
+        ],
+        "returns": "java.util.List",
+        "static": false
+      },
+      "content-download-semantics-bounds": {
+        "owner": "w1.x",
+        "name": "g",
+        "parameters": [],
+        "returns": "U0.d",
+        "static": false
+      },
+      "content-download-annotated-text": {
+        "owner": "z1.b",
+        "name": "toString",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false
+      },
+      "content-download-function-invoke": {
+        "owner": "pi.l",
+        "name": "invoke",
+        "parameters": [
+          "java.lang.Object"
+        ],
+        "returns": "java.lang.Object",
+        "static": false,
+        "invocationOnly": true
+      },
+      "content-download-glyph-bounds": {
+        "owner": "z1.T",
+        "name": "b",
+        "parameters": [
+          "int"
+        ],
+        "returns": "U0.d",
+        "static": false
+      },
+      "content-download-album-data": {
+        "owner": "com.apple.android.music.collection.mediaapi.viewmodel.AlbumViewModel",
+        "name": "getData",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.Album",
+        "static": false
+      },
+      "content-download-album-set-data": {
+        "owner": "com.apple.android.music.collection.mediaapi.viewmodel.AlbumViewModel",
+        "name": "setData",
+        "parameters": [
+          "com.apple.android.music.mediaapi.models.Album"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-artist-create-view": {
+        "owner": "com.apple.android.music.profiles2.ArtistFragment",
+        "name": "onCreateView",
+        "parameters": [
+          "android.view.LayoutInflater",
+          "android.view.ViewGroup",
+          "android.os.Bundle"
+        ],
+        "returns": "android.view.View",
+        "static": false
+      },
+      "content-download-album-create-view": {
+        "owner": "com.apple.android.music.collection.mediaapi.fragment.AlbumFragment",
+        "name": "onCreateView",
+        "parameters": [
+          "android.view.LayoutInflater",
+          "android.view.ViewGroup",
+          "android.os.Bundle"
+        ],
+        "returns": "android.view.View",
+        "static": false
+      },
+      "content-download-lyrics-online-loader": {
+        "owner": "com.apple.android.music.ttml.f",
+        "name": "e",
+        "parameters": [
+          "long",
+          "[Ljava.lang.String;",
+          "long",
+          "[Ljava.lang.String;",
+          "hi.c"
+        ],
+        "returns": "java.io.Serializable",
+        "static": false
+      },
+      "content-download-lyrics-file-loader": {
+        "owner": "com.apple.android.music.ttml.f",
+        "name": "f",
+        "parameters": [
+          "java.lang.String",
+          "long",
+          "long",
+          "F7.g"
+        ],
+        "returns": "com.apple.android.music.ttml.javanative.model.SongInfo$SongInfoPtr",
+        "static": true
+      },
+      "player-artwork-resize": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "E1",
+        "parameters": [
+          "boolean",
+          "android.util.Size"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-item-id": {
+        "owner": "com.apple.android.music.model.CollectionItemView",
+        "name": "getId",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false,
+        "invocationOnly": true
+      },
+      "content-download-item-title": {
+        "owner": "com.apple.android.music.model.CollectionItemView",
+        "name": "getTitle",
+        "parameters": [],
+        "returns": "java.lang.String",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-media-browser": {
+        "owner": "ia.a$c",
+        "name": "getMediaBrowser",
+        "parameters": [],
+        "returns": "J4.w",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-get-shuffle": {
+        "owner": "J4.B",
+        "name": "getShuffleModeEnabled",
+        "parameters": [],
+        "returns": "boolean",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-set-shuffle": {
+        "owner": "J4.B",
+        "name": "setShuffleModeEnabled",
+        "parameters": [
+          "boolean"
+        ],
+        "returns": "void",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-get-repeat": {
+        "owner": "J4.B",
+        "name": "getRepeatMode",
+        "parameters": [],
+        "returns": "int",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-set-repeat": {
+        "owner": "J4.B",
+        "name": "setRepeatMode",
+        "parameters": [
+          "int"
+        ],
+        "returns": "void",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-command-available": {
+        "owner": "J4.B",
+        "name": "g",
+        "parameters": [
+          "int"
+        ],
+        "returns": "boolean",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-application-looper": {
+        "owner": "J4.B",
+        "name": "getApplicationLooper",
+        "parameters": [],
+        "returns": "android.os.Looper",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-backend-connected": {
+        "owner": "J4.B$b",
+        "name": "k",
+        "parameters": [],
+        "returns": "boolean",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-add-listener": {
+        "owner": "J4.B",
+        "name": "Y",
+        "parameters": [
+          "z3.D$c"
+        ],
+        "returns": "void",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-remove-listener": {
+        "owner": "J4.B",
+        "name": "m",
+        "parameters": [
+          "z3.D$c"
+        ],
+        "returns": "void",
+        "static": false,
+        "invocationOnly": true
+      },
+      "tablet-playback-add-browser-listener": {
+        "owner": "ia.a",
+        "name": "a",
+        "parameters": [
+          "ia.a$a"
+        ],
+        "returns": "void",
+        "static": true,
+        "invocationOnly": true
+      },
+      "tablet-playback-remove-browser-listener": {
+        "owner": "ia.a",
+        "name": "f",
+        "parameters": [
+          "ia.a$a"
+        ],
+        "returns": "void",
+        "static": true,
+        "invocationOnly": true
+      },
+      "tablet-playback-browser-disconnected": {
+        "owner": "ia.a",
+        "name": "k",
+        "parameters": [
+          "J4.B"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-compose-album-model": {
+        "owner": "com.apple.android.music.collection2.fragment.AlbumPageFragment",
+        "name": "G1",
+        "parameters": [],
+        "returns": "com.apple.android.music.collection2.viewmodel.AlbumViewModel",
+        "static": false
+      },
+      "content-download-compose-album-data": {
+        "owner": "com.apple.android.music.collection2.viewmodel.BaseCollectionViewModel",
+        "name": "getData",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.MediaEntity",
+        "static": false
+      },
+      "content-download-compose-album-set-data": {
+        "owner": "com.apple.android.music.collection2.viewmodel.BaseCollectionViewModel",
+        "name": "setData",
+        "parameters": [
+          "com.apple.android.music.mediaapi.models.MediaEntity"
+        ],
+        "returns": "void",
+        "static": false
+      },
+      "content-download-compose-album-create-view": {
+        "owner": "Xb.g",
+        "name": "onCreateView",
+        "parameters": [
+          "android.view.LayoutInflater",
+          "android.view.ViewGroup",
+          "android.os.Bundle"
+        ],
+        "returns": "android.view.View",
+        "static": false
       }
     },
     "fieldContracts": {
+      "player-controls-min-height": {
+        "owner": "androidx.constraintlayout.widget.ConstraintLayout$b",
+        "name": "O",
+        "type": "int"
+      },
+      "tablet-content-start-anchor": {
+        "owner": "androidx.constraintlayout.widget.ConstraintLayout$b",
+        "name": "t",
+        "type": "int"
+      },
+      "tablet-content-end-anchor": {
+        "owner": "androidx.constraintlayout.widget.ConstraintLayout$b",
+        "name": "v",
+        "type": "int"
+      },
+      "player-pane-enter-running": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "j",
+        "type": "boolean"
+      },
+      "player-pane-shared-running": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "k",
+        "type": "boolean"
+      },
+      "song-sharing-item": {
+        "owner": "com.apple.android.music.common.actionsheet.S",
+        "name": "V",
+        "type": "com.apple.android.music.model.CollectionItemView"
+      },
       "lyrics-current-item-field": {
         "owner": "com.apple.android.music.player.fragment.l",
         "name": "c",
         "type": "com.apple.android.music.model.BaseContentItem"
+      },
+      "player-page-callback-owner": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$i",
+        "name": "h",
+        "type": "com.apple.android.music.player.fragment.PlayerMainFragment"
+      },
+      "player-page-callback": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "c0",
+        "type": "com.apple.android.music.player.fragment.PlayerMainFragment$i"
+      },
+      "player-page-progress-value": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$i",
+        "name": "f",
+        "type": "float"
+      },
+      "player-page-behavior": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "c",
+        "type": "com.google.android.material.bottomsheet.BottomSheetBehavior"
+      },
+      "player-page-behavior-state": {
+        "owner": "com.google.android.material.bottomsheet.BottomSheetBehavior",
+        "name": "p0",
+        "type": "int"
+      },
+      "player-motion-outline-progress": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$j",
+        "name": "a",
+        "type": "float"
+      },
+      "player-motion-outline-owner": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$e",
+        "name": "d",
+        "type": "com.apple.android.music.player.fragment.PlayerMainFragment"
+      },
+      "player-motion-collapsed-radius": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment$e",
+        "name": "c",
+        "type": "float"
+      },
+      "player-background-path": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "l",
+        "type": "android.graphics.Path"
+      },
+      "more-dialog-controller": {
+        "owner": "com.apple.android.music.common.actionsheet.ActionSheetDialogFragment",
+        "name": "c",
+        "type": "com.apple.android.music.common.r"
+      },
+      "more-fragment-adapter": {
+        "owner": "com.apple.android.music.common.actionsheet.ActionSheetDialogFragment",
+        "name": "b",
+        "type": "Z6.b"
+      },
+      "more-fragment-actions": {
+        "owner": "com.apple.android.music.common.actionsheet.ActionSheetDialogFragment",
+        "name": "a",
+        "type": "com.apple.android.music.common.actionsheet.d"
+      },
+      "more-adapter-source": {
+        "owner": "Z6.d",
+        "name": "d",
+        "type": "Z6.f"
+      },
+      "more-source-commands": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "c",
+        "type": "java.util.List"
+      },
+      "more-source-footer": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "d",
+        "type": "java.util.List"
+      },
+      "more-source-item": {
+        "owner": "com.apple.android.music.common.actionsheet.s",
+        "name": "b",
+        "type": "com.apple.android.music.model.CollectionItemView"
+      },
+      "more-holder-view": {
+        "owner": "androidx.recyclerview.widget.RecyclerView$D",
+        "name": "a",
+        "type": "android.view.View"
+      },
+      "more-holder-binding": {
+        "owner": "Z6.d$b",
+        "name": "u",
+        "type": "androidx.databinding.ViewDataBinding"
+      },
+      "more-header-album": {
+        "owner": "q8.j",
+        "name": "j0",
+        "type": "com.apple.android.music.common.views.CustomTextView"
+      },
+      "more-header-artist": {
+        "owner": "q8.j",
+        "name": "i0",
+        "type": "com.apple.android.music.common.views.CustomTextView"
+      },
+      "player-selected-pane": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "a",
+        "type": "com.apple.android.music.player.fragment.PlayerMainFragment$l"
+      },
+      "player-background-source": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "b",
+        "type": "android.graphics.Bitmap"
+      },
+      "player-background-queued": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "c",
+        "type": "android.graphics.Bitmap"
+      },
+      "player-background-derived": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "e",
+        "type": "android.graphics.Bitmap"
+      },
+      "player-background-shader": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "f",
+        "type": "android.graphics.BitmapShader"
+      },
+      "player-background-previous-shader": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "h",
+        "type": "android.graphics.BitmapShader"
+      },
+      "player-background-paint": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "g",
+        "type": "android.graphics.Paint"
+      },
+      "player-background-previous-paint": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "j",
+        "type": "android.graphics.Paint"
+      },
+      "player-background-fade": {
+        "owner": "com.apple.android.music.player.LyricsBackgroundLayerView",
+        "name": "y",
+        "type": "android.animation.ValueAnimator"
+      },
+      "content-download-loader-song-id": {
+        "owner": "com.apple.android.music.ttml.e",
+        "name": "a",
+        "type": "long"
+      },
+      "content-download-loader-resume-label": {
+        "owner": "com.apple.android.music.ttml.e",
+        "name": "e",
+        "type": "int"
+      },
+      "content-download-semantics-key-name": {
+        "owner": "w1.J",
+        "name": "a",
+        "type": "java.lang.String"
+      },
+      "content-download-semantics-id": {
+        "owner": "w1.x",
+        "name": "g",
+        "type": "int"
+      },
+      "content-download-semantics-action": {
+        "owner": "w1.a",
+        "name": "b",
+        "type": "bi.f"
+      },
+      "content-download-rect-left": {
+        "owner": "U0.d",
+        "name": "a",
+        "type": "float"
+      },
+      "content-download-rect-top": {
+        "owner": "U0.d",
+        "name": "b",
+        "type": "float"
+      },
+      "content-download-rect-right": {
+        "owner": "U0.d",
+        "name": "c",
+        "type": "float"
+      },
+      "content-download-rect-bottom": {
+        "owner": "U0.d",
+        "name": "d",
+        "type": "float"
+      },
+      "player-artwork-video-mode": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "L",
+        "type": "boolean"
+      },
+      "player-artwork-size-animation": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "V",
+        "type": "android.animation.AnimatorSet"
+      },
+      "tablet-playback-main-state": {
+        "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
+        "name": "H",
+        "type": "com.apple.android.music.player.b1"
+      },
+      "tablet-playback-mode-blocked": {
+        "owner": "com.apple.android.music.player.b1",
+        "name": "M",
+        "type": "boolean"
+      },
+      "tablet-playback-controller-backend": {
+        "owner": "J4.B",
+        "name": "c",
+        "type": "J4.B$b"
+      },
+      "player-artwork-static-baseline": {
+        "owner": "com.apple.android.music.player.fragment.PlayerSongViewFragment",
+        "name": "h0",
+        "type": "android.util.Size"
+      },
+      "player-artwork-target-size": {
+        "owner": "com.apple.android.music.player.fragment.l",
+        "name": "Q",
+        "type": "android.util.Size"
       }
     }
   },
@@ -607,7 +1600,8 @@
         "setBitmap(Landroid/graphics/Bitmap;)V"
       ],
       "Lcom/apple/android/music/model/CollectionItemView;": [
-        "getTitle()Ljava/lang/String;"
+        "getTitle()Ljava/lang/String;",
+        "getContentType()I"
       ],
       "Lcom/apple/android/music/common/L;": [
         "s(Lcom/apple/android/music/model/CollectionItemView;)V"
@@ -809,6 +1803,43 @@
       ],
       "Landroidx/core/content/FileProvider;": [
         "d(Landroid/content/Context;Ljava/io/File;Ljava/lang/String;)Landroid/net/Uri;"
+      ],
+      "Lcom/apple/android/music/common/actionsheet/a0;": [
+        "onCreateView(Landroid/view/LayoutInflater;Landroid/view/ViewGroup;Landroid/os/Bundle;)Landroid/view/View;"
+      ],
+      "Lia/a$c;": [
+        "getMediaBrowser()LJ4/w;"
+      ],
+      "LJ4/B;": [
+        "getShuffleModeEnabled()Z",
+        "setShuffleModeEnabled(Z)V",
+        "getRepeatMode()I",
+        "setRepeatMode(I)V",
+        "g(I)Z",
+        "getApplicationLooper()Landroid/os/Looper;",
+        "Y(Lz3/D$c;)V",
+        "m(Lz3/D$c;)V"
+      ],
+      "LJ4/B$b;": [
+        "k()Z"
+      ],
+      "Lia/a;": [
+        "a(Lia/a$a;)V",
+        "f(Lia/a$a;)V",
+        "k(LJ4/B;)V"
+      ],
+      "Lz3/D$c;": [
+        "onEvents(Lz3/D;Lz3/D$b;)V",
+        "onRepeatModeChanged(I)V",
+        "onShuffleModeEnabledChanged(Z)V",
+        "onAvailableCommandsChanged(Lz3/D$a;)V",
+        "onMediaMetadataChanged(Lz3/w;)V",
+        "onTimelineChanged(Lz3/K;I)V",
+        "onPlayerError(Lz3/B;)V"
+      ],
+      "Lia/a$a;": [
+        "onBrowserConnected(LJ4/w;)V",
+        "onConnectionFailed()V"
       ]
     },
     "fields": {
@@ -866,8 +1897,18 @@
       "res/layout-w735dp-v13/mini_player.xml",
       "res/layout-w830dp-v13/mini_player.xml",
       "res/layout/constraint_player_media_controls.xml",
+      "res/layout/fragment_player_lyrics_sheet.xml",
+      "res/layout/fragment_player_queue_sheet.xml",
+      "res/layout/new_fragment_player_queue_view.xml",
       "res/layout/dialog_quality_disclosure.xml",
-      "res/layout/fragment_share_lyrics_action_sheet.xml"
+      "res/layout/fragment_share_lyrics_action_sheet.xml",
+      "res/layout/fragment_share_action_sheet.xml",
+      "res/layout/action_sheet.xml",
+      "res/layout/action_sheet_header.xml",
+      "res/layout/sleep_timer_dialog_fragment.xml",
+      "res/layout/list_item_actionsheet.xml",
+      "res/layout/list_item_actionsheet_title.xml",
+      "res/layout/default_dialog_fragment.xml"
     ],
     "catalog_query": {
       "owner": "Lw9/Q;",
@@ -975,5 +2016,111 @@
   },
   "packageName": "com.apple.android.music",
   "versionName": "7.0.0-beta",
-  "versionCode": 1606
+  "versionCode": 1606,
+  "playerMoreMenu": {
+    "dialogClass": "com.apple.android.music.common.actionsheet.u",
+    "listId": "action_sheet_list",
+    "coordinatorId": "action_sheet_coordinator",
+    "outsideId": "action_sheet_outside"
+  },
+  "playerDialogs": {
+    "confirmationFragmentClass": "com.apple.android.music.commerce.fragments.c",
+    "confirmationMessageId": "message",
+    "confirmationTitleId": "title",
+    "confirmationButtonsId": "buttons_container",
+    "sleepFragmentClass": "com.apple.android.music.common.actionsheet.a0",
+    "sleepListId": "action_sheet_list",
+    "sleepTitleId": "item_actionsheet_title",
+    "deleteLabel": "delete_from_library",
+    "confirmationMessages": [
+      "delete_confirmation_dialog_message_album",
+      "delete_confirmation_dialog_message_downloaded_album",
+      "delete_confirmation_dialog_message_downloaded_album_favorites",
+      "delete_confirmation_dialog_message_downloaded_album_favorites_playlists",
+      "delete_confirmation_dialog_message_downloaded_album_playlists",
+      "delete_confirmation_dialog_message_downloaded_collaborative_playlist_collaborator",
+      "delete_confirmation_dialog_message_downloaded_collaborative_playlist_host",
+      "delete_confirmation_dialog_message_downloaded_playlist",
+      "delete_confirmation_dialog_message_downloaded_removed_from_playlist",
+      "delete_confirmation_dialog_message_downloaded_song",
+      "delete_confirmation_dialog_message_downloaded_song_favorites",
+      "delete_confirmation_dialog_message_downloaded_song_favorites_playlists",
+      "delete_confirmation_dialog_message_downloaded_song_playlists",
+      "delete_confirmation_dialog_message_downloaded_tv_episode",
+      "delete_confirmation_dialog_message_downloaded_tv_movie",
+      "delete_confirmation_dialog_message_downloaded_tv_show",
+      "delete_confirmation_dialog_message_downloaded_uploaded_song",
+      "delete_confirmation_dialog_message_downloaded_video",
+      "delete_confirmation_dialog_message_playlist",
+      "delete_confirmation_dialog_message_song",
+      "delete_confirmation_dialog_message_song_favorites",
+      "delete_confirmation_dialog_message_song_favorites_playlists",
+      "delete_confirmation_dialog_message_song_playlists",
+      "delete_confirmation_dialog_message_tv_episode",
+      "delete_confirmation_dialog_message_tv_movie",
+      "delete_confirmation_dialog_message_tv_show",
+      "delete_confirmation_dialog_message_video",
+      "delete_from_library_confirmation_message_album",
+      "delete_from_library_confirmation_message_album_favorites",
+      "delete_from_library_confirmation_message_album_favorites_playlists",
+      "delete_from_library_confirmation_message_album_playlists",
+      "delete_from_library_confirmation_message_playlist",
+      "unfavorite_or_delete_from_medialibrary_confirmation_dialog_message",
+      "unfavorite_or_delete_from_medialibrary_confirmation_dialog_message_favorites",
+      "unfavorite_or_delete_from_medialibrary_confirmation_dialog_message_favorites_playlists",
+      "unfavorite_or_delete_from_medialibrary_confirmation_dialog_message_playlists"
+    ]
+  },
+  "playerVolume": {
+    "controlsId": "player_controls",
+    "contentIds": [
+      "lyrics_main_content",
+      "queue_main_content"
+    ],
+    "transportIds": [
+      "play_pause",
+      "previous_rewind",
+      "next_fast_forward"
+    ],
+    "progressIds": [
+      "seek_bar_controls",
+      "live_radio_container"
+    ],
+    "actionsId": "player_lyrics",
+    "layout": "constraint_player_media_controls"
+  },
+  "tabletPlayerActions": {
+    "controlsId": "player_controls",
+    "lyricsId": "player_lyrics",
+    "queueId": "player_queue",
+    "outputId": "media_route_button",
+    "progressId": "seek_bar_controls",
+    "playId": "play_pause",
+    "translationId": "translations_button",
+    "vocalId": "vocal_ctrl",
+    "vocalLimitsId": "vocal_ctrl_drag_limits",
+    "previousId": "previous_rewind",
+    "nextId": "next_fast_forward"
+  },
+  "playerRecovery": {
+    "containerId": "artwork_container",
+    "cardId": "fullplayerSongImage",
+    "imageId": "artwork_image",
+    "backgroundId": "background_layers",
+    "motionId": "motion_switcher"
+  },
+  "contentDownloads": {
+    "albumTitleId": "collection_header_title",
+    "albumTitleResourceId": 2131362428,
+    "artistTitleSurface": "compose-text-semantics",
+    "artistFragmentClass": "com.apple.android.music.profiles2.ArtistFragment",
+    "artistModelClass": "com.apple.android.music.profiles2.ArtistViewModel",
+    "albumFragmentClass": "com.apple.android.music.collection.mediaapi.fragment.AlbumFragment",
+    "loaderContinuationClass": "com.apple.android.music.ttml.e",
+    "semanticsTextKey": "Text",
+    "semanticsHeadingKey": "Heading",
+    "semanticsLayoutKey": "GetTextLayoutResult",
+    "composeAlbumFragmentClass": "com.apple.android.music.collection2.fragment.AlbumPageFragment",
+    "composeAlbumModelClass": "com.apple.android.music.collection2.viewmodel.AlbumViewModel"
+  }
 }

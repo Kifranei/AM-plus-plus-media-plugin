@@ -215,7 +215,8 @@ def main():
                 owner = descriptor(contract['owner'])
                 signature = contract['name'] + '(' + ''.join(map(descriptor, contract['parameters'])) + ')' + descriptor(contract['returns'])
                 flags = classes.get(owner, {}).get('method_access', {}).get(signature)
-                if flags is None or bool(flags & 8) != contract['static'] or flags & (0x400 | 0x40 | 0x1000):
+                prohibited = 0x40 | 0x1000 | (0 if contract.get('invocationOnly') else 0x400)
+                if flags is None or bool(flags & 8) != contract['static'] or flags & prohibited:
                     failures.append(f'invalid exact method contract {symbol}: {owner} {signature}')
             for symbol, contract in document['indexed'].get('fieldContracts', {}).items():
                 checks += 1

@@ -20,6 +20,7 @@ kotlin { compilerOptions {
     freeCompilerArgs.add("-Xlambdas=class")
 } }
 
+val pluginVersion = "1.1.0"
 val hostSdk = files(
     rootProject.file("lib/ampp-plugin-api-v1.jar"),
     rootProject.file("lib/ampp-backdrop-host.jar"),
@@ -92,6 +93,6 @@ tasks.register<Zip>("pluginZip") {
     from("plugin.json")
     from("src/main/assets") { into("assets") }
     from(rootProject.file("LICENSE")) { into("assets/licenses"); rename { "AMpp-GPL-3.0.txt" } }
-    archiveFileName = "ampp-media-integrations-1.0.0.zip"
+    archiveFileName = "ampp-media-integrations-${pluginVersion}.zip"
     destinationDirectory = layout.buildDirectory.dir("dist")
 }
