@@ -4,6 +4,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlayerVolumeGeometryTest {
+    @Test fun `1609 phone fits the volume bar inside native controls without changing their height`() {
+        // 1260x2800, 560 dpi: captured with the original volume switch disabled.
+        val controlsHeight = 872
+        val progressBottom = 167
+        val transportTop = 275
+        val transportBottom = 506
+        val actionsTop = 613
+        val barHeight = 154
+        val fit = checkNotNull(PlayerVolumeGeometry.fit(transportTop, transportBottom,
+            progressBottom, actionsTop, barHeight, 84, listOf(28, 14)))
+        assertEquals(-84, fit.first)
+        assertTrue(transportTop + fit.first >= progressBottom + 14)
+        assertTrue(fit.second >= transportBottom + fit.first + 14)
+        assertTrue(fit.second + barHeight <= actionsTop - 14)
+        assertTrue(fit.second + barHeight < controlsHeight)
+    }
+
+    @Test fun `cramped native controls do not force a larger player layout`() {
+        assertNull(PlayerVolumeGeometry.fit(190, 420, 167, 510, 154, 84, listOf(28, 14)))
+    }
+
     @Test fun `volume bar shifts the transport even on roomy layouts and restores native placement without it`() {
         assertEquals(-16, PlayerVolumeGeometry.transportShift(120, 186, 84, 280, 44, 8, preferredShift = 16))
         assertEquals(-24, PlayerVolumeGeometry.transportShift(120, 186, 84, 222, 44, 8, preferredShift = 16))

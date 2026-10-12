@@ -4,6 +4,16 @@ import kotlin.math.roundToInt
 
 /** Reserve a full touch target between the native transport and bottom action row. */
 internal object PlayerVolumeGeometry {
+    fun fit(transportTop: Int, transportBottom: Int, progressBottom: Int,
+        actionsTop: Int, height: Int, preferredShift: Int, margins: List<Int>): Pair<Int, Int>? =
+        margins.firstNotNullOfOrNull { margin ->
+            val shift = transportShift(transportTop, transportBottom, progressBottom,
+                actionsTop, height, margin, preferredShift) ?: return@firstNotNullOfOrNull null
+            val top = top(transportBottom + shift, actionsTop, height, margin)
+                ?: return@firstNotNullOfOrNull null
+            shift to top
+        }
+
     fun transportShift(transportTop: Int, transportBottom: Int, progressBottom: Int,
         actionsTop: Int, height: Int, margin: Int, preferredShift: Int = 0): Int? {
         val required = (height + margin * 2 - (actionsTop - transportBottom)).coerceAtLeast(0)

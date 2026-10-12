@@ -5,7 +5,6 @@ import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
-import android.widget.ImageView
 import java.util.IdentityHashMap
 import kotlin.math.roundToInt
 import org.json.JSONObject
@@ -27,9 +26,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         val stateField = PluginProfiles.field("player-page-behavior-state")
         val enterTransition = PluginProfiles.field("player-pane-enter-running")
         val sharedTransition = PluginProfiles.field("player-pane-shared-running")
-        val paneCreated = PluginProfiles.method("player-pane-view-created")
-        val parentFragment = PluginProfiles.method("player-fragment-parent")
-        val minimumHeight = PluginProfiles.field("player-controls-min-height")
         val scope = PluginScope()
         val main = Handler(Looper.getMainLooper())
         val states = IdentityHashMap<Any, State>()
@@ -37,7 +33,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             if (!scope.isActive || states.containsKey(owner)) return
             val expanded = behaviorField.get(owner)?.let { stateField.getInt(it) == 3 } == true
             val progress = if (expanded) 1f else (callbackField.get(owner)?.let { progressField.getFloat(it) } ?: 0f)
-            states[owner] = State(root, build.packageName, names, progress, minimumHeight,
+            states[owner] = State(root, build.packageName, names, progress,
                 sheetState = { behaviorField.get(owner)?.let(stateField::getInt) ?: 4 },
                 paneTransition = { enterTransition.getBoolean(owner) || sharedTransition.getBoolean(owner) })
             MediaRuntime.log("player_volume: attached to native playback page")
@@ -58,23 +54,10 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             }
             check(MediaRuntime.observeMethod(create, created, scope))
             check(MediaRuntime.observeMethod(getView, created, scope))
-            check(MediaRuntime.observeMethod(paneCreated, object : PluginMethodHook() {
-                override fun afterHookedMethod(param: MethodHookParam) {
-                    if (param.throwable != null) return
-                    val owner = param.thisObject?.let(parentFragment::invoke) ?: return
-                    if (!create.declaringClass.isInstance(owner)) return
-                    val paneRoot = param.args.firstOrNull() as? View ?: return
-                    ensure(owner)?.preparePane(paneRoot)
-                }
-            }, scope))
             check(MediaRuntime.observeMethod(resume, object : PluginMethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) { if (param.throwable == null) param.thisObject?.let(::ensure) }
             }, scope))
             check(MediaRuntime.observeMethod(PluginProfiles.method("player-controller-select-pane"), object : PluginMethodHook() {
-                override fun beforeHookedMethod(param: MethodHookParam) {
-                    // Capture completed source row sizes before AM starts its shared transition.
-                    states[param.thisObject]?.rememberPhoneRows()
-                }
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
                     val owner = param.thisObject ?: return
@@ -113,7 +96,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
     }
 
     private class State(private val root: ViewGroup, private val packageName: String, names: JSONObject, var expansion: Float,
-        minimumHeight: java.lang.reflect.Field,
         private val sheetState: () -> Int, private val paneTransition: () -> Boolean) : AutoCloseable {
         private val volume = IosVolumeSliderView(root.context).apply { visibility = View.INVISIBLE }
         private fun id(name: String) = root.resources.getIdentifier(name, "id", packageName)
@@ -127,10 +109,8 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         private var controlsDirty = true
         private data class Spacing(val params: ViewGroup.MarginLayoutParams, val value: PlayerVolumeSpacing)
         private val spacing = IdentityHashMap<View, Spacing>()
-        private val space = PlayerVolumeSpace(root, minimumHeight, id("controls"))
         private val position = PlayerVolumePosition()
         private val holdColumn = PlayerVolumeHoldColumn<View>(position)
-        private val panePreparation = PlayerVolumePanePreparation()
         private val drawSettlement = PlayerVolumeDrawSettlement()
         private fun phone() = root.resources.configuration.smallestScreenWidthDp < 600
         private var layoutRevision = 0L
@@ -145,7 +125,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         private val preDraw = ViewTreeObserver.OnPreDrawListener {
             val before = layoutRevision
             update()
-            // A spacing/minimum change requests another native layout. Do not display
+            // A spacing change requests another native layout. Do not display
             // the intermediate bounds of the first frame and then jump on the next one.
             !phone() || drawSettlement.allow(before != layoutRevision)
         }
@@ -155,7 +135,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             override fun onViewDetachedFromWindow(view: View) { unlisten(); volume.setPageVisible(false) }
         }
         init {
-            preparePane(root)
             root.addView(volume, ViewGroup.LayoutParams(1, 1))
             root.addOnAttachStateChangeListener(attached)
             if (root.isAttachedToWindow) listen()
@@ -168,59 +147,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         private fun preferredTransportShift(): Int {
             val dp = if (root.resources.configuration.smallestScreenWidthDp >= 600) 16 else 24
             return (dp * root.resources.displayMetrics.density).roundToInt()
-        }
-        fun preparePane(paneRoot: View) {
-            // Run before the pane's first layout and before AM captures shared elements.
-            rememberPhoneRows()
-            val shift = -preferredTransportShift()
-            groupsIn(paneRoot).filterIsInstance<ViewGroup>().forEach { group ->
-                transportIds.forEach { id -> group.findViewById<View>(id)?.let { setSpacing(it, shift) } }
-                if (phone()) controlsIn(group)?.let { controls ->
-                    panePreparation.required(window(), rows(controls))?.let { height ->
-                        if (space.reserve(controls.root, height)) {
-                            layoutRevision++
-                            MediaRuntime.log("player_volume: prepared phone controls before native layout; minimum $height")
-                        }
-                    }
-                }
-            }
-            controlsDirty = true
-        }
-        private fun window() = PlayerVolumePanePreparation.Window(root.width, root.height,
-            root.resources.configuration.toString())
-        private fun rows(controls: Controls) =
-            (controls.progress.filter { it.visibility != View.GONE } + controls.transports + controls.actions).map { view ->
-                PlayerVolumePanePreparation.Row(view.id, view.layoutParams.width, view.layoutParams.height,
-                    view.paddingTop, view.paddingBottom, (view as? ImageView)?.drawable?.intrinsicHeight ?: -1)
-            }
-        fun rememberPhoneRows() {
-            if (!phone()) return
-            groupsIn(root).filterIsInstance<ViewGroup>().mapNotNull(::controlsIn).forEach { controls ->
-                requiredSpace(controls)?.let { height -> panePreparation.remember(window(), rows(controls), height) }
-            }
-        }
-        private fun requiredSpace(controls: Controls): Int? {
-            // A child may still report its old bounds while rotation or a parent
-            // constraint change is waiting for the next native layout pass.
-            if (root.isLayoutRequested || controls.root.isLayoutRequested) return null
-            val density = root.resources.displayMetrics.density
-            fun dp(value: Int) = (value * density).roundToInt()
-            // seek_bar_controls contains another ConstraintLayout. An UNSPECIFIED probe
-            // bypasses both its parent bounds and fixed transport sizes; wait for AM's layout.
-            fun height(view: View) = PlayerVolumeMeasurement.height(view.layoutParams.height, view.measuredHeight,
-                view.height, view.isLaidOut && !view.isLayoutRequested)
-            val progressRows = controls.progress.filter { it.visibility != View.GONE }
-            if (progressRows.isEmpty()) return null
-            val progress = progressRows.map { height(it) ?: return null }.max()
-            val transport = controls.transports.map { height(it) ?: return null }.max()
-            val actions = height(controls.actions) ?: return null
-            val bottom = (controls.actions.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
-            return PlayerVolumeGeometry.controlsHeight(progress, transport, actions, bottom, dp(44), dp(8))
-        }
-        private fun reserveSpace(controls: Controls): Boolean? {
-            val height = requiredSpace(controls) ?: return null
-            if (phone()) panePreparation.remember(window(), rows(controls), height)
-            return space.reserve(controls.root, height).also { if (it) layoutRevision++ }
         }
         private fun listen() {
             unlisten(); controlsDirty = true
@@ -280,14 +206,12 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             PlayerVolumeLayoutState.inactive(spacing.keys, retained.flatMap(Controls::transports)).forEach {
                 if (restoreSpacing(it)) restored = true
             }
-            if (space.retain(retained.map(Controls::root))) { restored = true; layoutRevision++ }
-            if (current == null || restored || reserveSpace(current) != false) { hide(); return }
+            if (current == null || restored) { hide(); return }
             val transports = current.transports.filter(View::isShown)
             val actions = current.actions
             val contentAlpha = checkNotNull(opacity(current)).coerceIn(0f, 1f)
             val density = root.resources.displayMetrics.density
             fun dp(value: Int) = (value * density).roundToInt()
-            val margin = dp(8)
             val progress = current.progress.firstOrNull(View::isShown)
                 ?: run { hide(); return }
             root.getLocationInWindow(rootPosition); actions.getLocationInWindow(actionsPosition); progress.getLocationInWindow(progressPosition)
@@ -310,14 +234,15 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
                 val y = transportPosition[1] - rootPosition[1] - offset.roundToInt()
                 transportTop = minOf(transportTop, y); transportBottom = maxOf(transportBottom, y + view.height)
             }
-            val shift = PlayerVolumeGeometry.transportShift(transportTop, transportBottom,
-                progressPosition[1] - rootPosition[1] + progress.height, actionsTop, height, margin, preferredShift = preferredTransportShift()) ?: run {
+            val fit = PlayerVolumeGeometry.fit(transportTop, transportBottom,
+                progressPosition[1] - rootPosition[1] + progress.height, actionsTop, height,
+                preferredTransportShift(), listOf(dp(8), dp(4))) ?: run {
                 transports.forEach(::restoreSpacing); hide(); return
             }
+            val (shift, top) = fit
             var layoutChanged = false
             transports.forEach { if (setSpacing(it, shift)) layoutChanged = true }
             if (layoutChanged) { hide(); return } // Wait for native ConstraintLayout to apply new bounds.
-            val top = PlayerVolumeGeometry.top(transportBottom + shift, actionsTop, height, margin) ?: run { hide(); return }
             val bounds = PlayerVolumeGeometry.column(columnLeft, current.root.width, root.width, dp(32))
             val (left, width) = bounds ?: run { hide(); return }
             if (width < dp(120)) { hide(); return }
@@ -370,7 +295,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         override fun close() {
             unlisten(); root.removeOnAttachStateChangeListener(attached); volume.close()
             spacing.keys.toList().forEach(::restoreSpacing)
-            space.close()
             controls = emptyList(); holdColumn.clear()
             // A destroy hook can run during native window detachment; defer hierarchy mutation.
             Handler(Looper.getMainLooper()).post { (volume.parent as? ViewGroup)?.removeView(volume) }
