@@ -11,7 +11,7 @@ import kotlin.math.roundToInt
 import org.json.JSONObject
 
 /** Attach to the real player root, including pages already created before plugin startup. */
-internal class PlayerVolumeIntegration(private val build: TargetBuild, private val compactTablet: Boolean = false) {
+internal class PlayerVolumeIntegration(private val build: TargetBuild) {
     fun install(): TargetCapabilityInstall {
         val names = PluginProfiles.find(build.packageName, build.versionName, build.versionCode)?.document?.optJSONObject("playerVolume")
             ?: return TargetCapabilityInstall.Unsupported("No verified player-volume layout for ${build.displayName}")
@@ -37,7 +37,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
             if (!scope.isActive || states.containsKey(owner)) return
             val expanded = behaviorField.get(owner)?.let { stateField.getInt(it) == 3 } == true
             val progress = if (expanded) 1f else (callbackField.get(owner)?.let { progressField.getFloat(it) } ?: 0f)
-            states[owner] = State(root, build.packageName, names, progress, minimumHeight, compactTablet,
+            states[owner] = State(root, build.packageName, names, progress, minimumHeight,
                 sheetState = { behaviorField.get(owner)?.let(stateField::getInt) ?: 4 },
                 paneTransition = { enterTransition.getBoolean(owner) || sharedTransition.getBoolean(owner) })
             MediaRuntime.log("player_volume: attached to native playback page")
@@ -113,7 +113,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
     }
 
     private class State(private val root: ViewGroup, private val packageName: String, names: JSONObject, var expansion: Float,
-        minimumHeight: java.lang.reflect.Field, private val compactTablet: Boolean,
+        minimumHeight: java.lang.reflect.Field,
         private val sheetState: () -> Int, private val paneTransition: () -> Boolean) : AutoCloseable {
         private val volume = IosVolumeSliderView(root.context).apply { visibility = View.INVISIBLE }
         private fun id(name: String) = root.resources.getIdentifier(name, "id", packageName)
@@ -130,14 +130,10 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
         private val space = PlayerVolumeSpace(root, minimumHeight, id("controls"))
         private val position = PlayerVolumePosition()
         private val holdColumn = PlayerVolumeHoldColumn<View>(position)
-        private val tabletSizing = TabletPlayerControlSizing()
         private val panePreparation = PlayerVolumePanePreparation()
         private val drawSettlement = PlayerVolumeDrawSettlement()
         private fun phone() = root.resources.configuration.smallestScreenWidthDp < 600
         private var layoutRevision = 0L
-        private val compactActionIds = listOf(actionsId, id("player_queue"), id("media_route_button"))
-        private val timeIds = listOf(id("current_time_progress"), id("total_time_progress"))
-        private fun compact() = compactTablet && root.resources.configuration.smallestScreenWidthDp >= 600
         private var loggedHoldCorrection = false
         private val rootPosition = IntArray(2)
         private val transportPosition = IntArray(2)
@@ -178,8 +174,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
             rememberPhoneRows()
             val shift = -preferredTransportShift()
             groupsIn(paneRoot).filterIsInstance<ViewGroup>().forEach { group ->
-                if (compact()) tabletSizing.apply(transportIds.mapNotNull { group.findViewById(it) },
-                    compactActionIds.mapNotNull { group.findViewById(it) }, timeIds.mapNotNull { group.findViewById(it) })
                 transportIds.forEach { id -> group.findViewById<View>(id)?.let { setSpacing(it, shift) } }
                 if (phone()) controlsIn(group)?.let { controls ->
                     panePreparation.required(window(), rows(controls))?.let { height ->
@@ -221,12 +215,12 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
             val transport = controls.transports.map { height(it) ?: return null }.max()
             val actions = height(controls.actions) ?: return null
             val bottom = (controls.actions.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
-            return PlayerVolumeGeometry.controlsHeight(progress, transport, actions, bottom, dp(44), dp(if (compact()) 4 else 8))
+            return PlayerVolumeGeometry.controlsHeight(progress, transport, actions, bottom, dp(44), dp(8))
         }
         private fun reserveSpace(controls: Controls): Boolean? {
             val height = requiredSpace(controls) ?: return null
             if (phone()) panePreparation.remember(window(), rows(controls), height)
-            return space.reserve(controls.root, height, compact = compact()).also { if (it) layoutRevision++ }
+            return space.reserve(controls.root, height).also { if (it) layoutRevision++ }
         }
         private fun listen() {
             unlisten(); controlsDirty = true
@@ -257,10 +251,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
         fun update() {
             fun hide() { volume.visibility = View.INVISIBLE; volume.setPageVisible(false) }
             fun hold() {
-                if (TabletPlayerActionsIntegration.holdsPane(root)) {
-                    if (!position.hold(root.width, root.height, ::placeVolume)) hide()
-                    return
-                }
                 val source = holdColumn.source?.takeIf(View::isAttachedToWindow)
                 val windowX = source?.let { it.getLocationInWindow(columnPosition); columnPosition[0] }
                 if (!holdColumn.hold(windowX, root.width, root.height, ::placeVolume)) hide()
@@ -268,9 +258,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
             if (!root.isAttachedToWindow || !root.isShown) { hide(); return }
             val currentState = sheetState()
             if (currentState == 3) expansion = 1f
-            if (compact() && TabletPlayerPresentationMode.nearExpanded(currentState, expansion, holdColumn.source != null)) {
-                hold(); return
-            }
             when (PlayerVolumeMotion.mode(currentState, expansion, paneTransition())) {
                 PlayerVolumeMotion.Mode.HIDE -> { hide(); return }
                 // Keep native geometry untouched, but undo the parent's layout of our extra View.
@@ -294,20 +281,13 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
                 if (restoreSpacing(it)) restored = true
             }
             if (space.retain(retained.map(Controls::root))) { restored = true; layoutRevision++ }
-            if (compact() && current != null) {
-                val actions = compactActionIds.mapNotNull { current.root.findViewById<View>(it) }
-                val times = timeIds.mapNotNull { current.root.findViewById<View>(it) }
-                if (tabletSizing.retain(current.transports + actions + times)) { restored = true; layoutRevision++ }
-                if (tabletSizing.apply(current.transports, actions, times)) { restored = true; layoutRevision++ }
-            }
-            if (!compact()) tabletSizing.close()
             if (current == null || restored || reserveSpace(current) != false) { hide(); return }
             val transports = current.transports.filter(View::isShown)
             val actions = current.actions
             val contentAlpha = checkNotNull(opacity(current)).coerceIn(0f, 1f)
             val density = root.resources.displayMetrics.density
             fun dp(value: Int) = (value * density).roundToInt()
-            val margin = dp(if (compact()) 4 else 8)
+            val margin = dp(8)
             val progress = current.progress.firstOrNull(View::isShown)
                 ?: run { hide(); return }
             root.getLocationInWindow(rootPosition); actions.getLocationInWindow(actionsPosition); progress.getLocationInWindow(progressPosition)
@@ -338,11 +318,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
             transports.forEach { if (setSpacing(it, shift)) layoutChanged = true }
             if (layoutChanged) { hide(); return } // Wait for native ConstraintLayout to apply new bounds.
             val top = PlayerVolumeGeometry.top(transportBottom + shift, actionsTop, height, margin) ?: run { hide(); return }
-            val cover = if (compact()) TabletPlayerActionsIntegration.contentRegion(current.root) else null
-            // The entire tablet row, including both speakers, stays within the playing
-            // cover width. Its built-in speaker slots shorten only the inner track.
-            val bounds = if (cover != null) PlayerVolumeGeometry.column(cover.left.roundToInt(), cover.width.roundToInt(), root.width, 0)
-                else PlayerVolumeGeometry.column(columnLeft, current.root.width, root.width, dp(32))
+            val bounds = PlayerVolumeGeometry.column(columnLeft, current.root.width, root.width, dp(32))
             val (left, width) = bounds ?: run { hide(); return }
             if (width < dp(120)) { hide(); return }
             val placement = PlayerVolumePlacement(left, top, width, height, root.width, root.height, contentAlpha,
@@ -370,7 +346,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
         private fun effectiveAlpha(view: View): Float {
             var current: View? = view
             var alpha = 1f
-            while (current != null && current !== root) { alpha *= TabletPlayerActionsIntegration.nativeAlpha(current); current = current.parent as? View }
+            while (current != null && current !== root) { alpha *= current.alpha; current = current.parent as? View }
             return alpha
         }
         private fun setSpacing(view: View, shift: Int): Boolean {
@@ -394,7 +370,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild, private v
         override fun close() {
             unlisten(); root.removeOnAttachStateChangeListener(attached); volume.close()
             spacing.keys.toList().forEach(::restoreSpacing)
-            tabletSizing.close()
             space.close()
             controls = emptyList(); holdColumn.clear()
             // A destroy hook can run during native window detachment; defer hierarchy mutation.

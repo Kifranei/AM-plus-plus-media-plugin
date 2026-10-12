@@ -20,7 +20,9 @@ kotlin { compilerOptions {
     freeCompilerArgs.add("-Xlambdas=class")
 } }
 
-val pluginVersion = "1.1.0"
+// plugin.json is the single source of truth for the version; CI and the ZIP name derive from it.
+val pluginManifest = groovy.json.JsonSlurper().parse(file("plugin.json")) as Map<*, *>
+val pluginVersion = pluginManifest["versionName"] as String
 val hostSdk = files(
     rootProject.file("lib/ampp-plugin-api-v1.jar"),
     rootProject.file("lib/ampp-backdrop-host.jar"),
@@ -95,4 +97,8 @@ tasks.register<Zip>("pluginZip") {
     from(rootProject.file("LICENSE")) { into("assets/licenses"); rename { "AMpp-GPL-3.0.txt" } }
     archiveFileName = "ampp-media-integrations-${pluginVersion}.zip"
     destinationDirectory = layout.buildDirectory.dir("dist")
+}
+tasks.register("printPluginVersion") {
+    val version = pluginVersion
+    doLast { println(version) }
 }

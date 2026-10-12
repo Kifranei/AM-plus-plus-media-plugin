@@ -167,6 +167,40 @@ class ContentDownloadCaptureTest {
         assertFalse(capture.recordTtml(0, raw("word")))
     }
 
+    @Test fun `artist wordmark is exposed only when the logo editorial artwork exists and never replaces the portrait`() {
+        val json = JSONObject("""{"id":"159260351","type":"artists","attributes":{"name":"Taylor Swift",
+            "editorialArtwork":{"musicContentColorLogoTrimmed":{"url":"https://cdn.example/logo/{w}x{h}{c}.{f}","width":4826,"height":1264},
+              "subscriptionHero":{"url":"https://cdn.example/hero/{w}x{h}{c}.{f}","width":3000,"height":1000}}}}""")
+        val page = checkNotNull(ContentDownloadPageDecoder().fromJson(json))
+        assertEquals("https://cdn.example/logo/4826x1264bb.png", checkNotNull(page.wordmark).pngUrl())
+        assertEquals("https://cdn.example/hero/{w}x{h}{c}.{f}", page.artwork?.url)
+        assertEquals(listOf(ContentExportKind.ARTIST_ARTWORK, ContentExportKind.ARTIST_WORDMARK, ContentExportKind.ARTIST_MOTION_ARTWORK,
+            ContentExportKind.ARTIST_BIOGRAPHY), page.assets().map { it.kind })
+        val logoOnly = checkNotNull(ContentDownloadPageDecoder().fromJson(JSONObject("""{"id":"1","type":"artists","attributes":{"name":"A",
+            "editorialArtwork":{"musicContentColorLogoTrimmed":{"url":"https://cdn.example/l/{w}x{h}{c}.{f}","width":10,"height":5}}}}""")))
+        assertNull(logoOnly.artwork)
+        val album = checkNotNull(ContentDownloadPageDecoder().fromJson(json.put("type", "albums")))
+        assertNull(album.wordmark)
+        assertTrue(album.assets().none { it.kind == ContentExportKind.ARTIST_WORDMARK })
+
+        val logo = Any(); val attributes = Any(); val entity = Any()
+        val native = ContentDownloadNativeAccess { owner, key -> when {
+            owner === entity && key == "content-download-entity-id" -> "100"
+            owner === entity && key == "content-download-entity-type" -> "artists"
+            owner === entity && key == "media-entity-get-title-method" -> "Artist"
+            owner === entity && key == "media-entity-get-attributes-method" -> attributes
+            owner === attributes && key == "content-download-attrs-editorial-artwork" -> mapOf(ARTIST_WORDMARK_ARTWORK_KEY to logo)
+            owner === logo && key == "content-download-artwork-url" -> "https://cdn.example/n/{w}x{h}{c}.{f}"
+            owner === logo && key == "content-download-artwork-width" -> 2000
+            owner === logo && key == "content-download-artwork-height" -> 500
+            else -> null
+        } }
+        val nativePage = checkNotNull(ContentDownloadPageDecoder().fromNative(entity, native))
+        assertEquals("https://cdn.example/n/2000x500bb.png", checkNotNull(nativePage.wordmark).pngUrl())
+        assertNull(nativePage.artwork)
+        assertTrue(ContentDownloadPage(ContentDownloadPageKind.ARTIST, "2", "No logo").assets().none { it.kind == ContentExportKind.ARTIST_WORDMARK })
+    }
+
     @Test fun `bounded video lists retain a real HLS fallback rather than filling with MP4 renditions`() {
         val json = JSONObject("""{"id":"200","type":"albums","attributes":{"editorialVideo":{"square":{
           "video":"https://cdn.example/cover.m3u8","videoFile":[{"assetUrl":"https://cdn.example/1.mp4"},{"assetUrl":"https://cdn.example/2.mp4"},{"assetUrl":"https://cdn.example/3.mp4"}]}}}}""")

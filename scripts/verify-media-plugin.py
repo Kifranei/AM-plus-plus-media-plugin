@@ -28,11 +28,13 @@ def main():
         assert all(name in {"plugin.json", "code.jar"} or name.startswith("assets/") for name in names)
         manifest = json.loads(archive.read("plugin.json"))
         assert manifest["id"] == "dev.kifranei.ampp.media"
-        assert manifest["versionName"] == "1.1.0"
-        assert manifest["versionCode"] == 10
+        source = json.loads((ROOT / "media-plugin/plugin.json").read_text(encoding="utf-8"))
+        assert manifest["versionName"] == source["versionName"] == "1.2.0"
+        assert manifest["versionCode"] == source["versionCode"] == 11
+        assert args.archive.name == f"ampp-media-integrations-{manifest['versionName']}.zip", args.archive.name
         assert manifest["formatVersion"] == manifest["apiVersion"] == 1
         assert manifest["minAndroidApi"] == 28
-        for asset in ("applemusic-1606.json", "ios-media-output.path", "ios-output-headphones.path",
+        for asset in ("applemusic-1609.json", "ios-media-output.path", "ios-output-headphones.path",
                       "ios-output-speaker.png", "ios-output-airpods.png", "licenses/AppleMusicOutputIcons.txt", "licenses/LyricProvider.txt",
                       "licenses/AndroidLiquidGlass.txt", "licenses/AMpp-GPL-3.0.txt"):
             assert archive.getinfo("assets/" + asset).file_size > 0, asset
@@ -55,24 +57,9 @@ def main():
         forbidden = ("Ldev/amenhancer/", "Lcom/apple/android/music/", "Lio/github/libxposed/",
                      "Lcom/kyant/backdrop/", "Landroidx/compose/")
         assert not any(name.startswith(forbidden) for name in definitions), "Private module, host or SDK code bundled"
-        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "AudioQualityIntegration",
-                    "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration",
-                    "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup",
-                    "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls",
-                    "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement",
-                    "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum",
-                    "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn",
-                    "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "TabletPlayerPresentationMode",
-                    "IosVolumeIcons", "TabletPlayerProgressStyle",
-                    "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "TabletPlayerActionsIntegration", "TabletPlayerActionsGeometry", "TabletPlayerMetadataStyle", "PlayerViewBootstrap",
-                    "TabletTransportStyle", "TabletLyricsPanePresentation", "TabletLyricsPaneState", "TabletLyricsPaneGeometry",
-                    "TabletPlayerControlSizing", "TabletArtworkSpacing", "TabletArtworkSpacingGeometry",
-                    "TabletPlayerContentWidth", "TabletPlayerContentWidthGeometry", "TabletPaneTransitionSurface", "TabletPaneTransitionGate",
-                    "TabletTranslationGlyph",
-                    "TabletContentWidthSettlement",
-                    "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "TabletPlaybackModesAccess")
+        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration")
         assert all("Ldev/kifranei/ampp/media/" + name + ";" in definitions for name in required)
-        for name in ("BluetoothOutputName", "AudioOutputDeviceLabel", "AudioOutputLabelGeometry", "AudioOutputButtonVisibility", "IosDeviceOutputDrawable", "OutputDeviceIcon", "BluetoothOutputState",
+        for name in ("BluetoothOutputName", "AudioOutputDeviceLabel", "AudioOutputLabelPlacement", "AudioOutputButtonVisibility", "IosDeviceOutputDrawable", "OutputDeviceIcon", "BluetoothOutputState",
                      "SystemAudioOutput", "AudioOutputRouting", "AudioOutputRoute", "AudioOutputKind", "AudioOutputState"):
             assert "Ldev/kifranei/ampp/media/" + name + ";" in definitions
         for asset, dimensions in (('ios-output-speaker.png', (46, 60)), ('ios-output-airpods.png', (62, 60))):

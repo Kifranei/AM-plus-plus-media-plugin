@@ -9,12 +9,13 @@ class ContentExportModelsTest {
         val assets = listOf(
             ContentExportAsset.ArtistArtwork("artist", null) to ContentExportReason.NO_ARTIST_ARTWORK,
             ContentExportAsset.ArtistMotionArtwork("artist", emptyList()) to ContentExportReason.NO_ARTIST_MOTION_ARTWORK,
+            ContentExportAsset.ArtistWordmark("artist", null) to ContentExportReason.NO_ARTIST_WORDMARK,
             ContentExportAsset.AlbumMotionArtwork("album", emptyList()) to ContentExportReason.NO_MOTION_ARTWORK,
             ContentExportAsset.TtmlLyrics("song", null) to ContentExportReason.NO_TTML,
             ContentExportAsset.ArtistBiography("artist", null) to ContentExportReason.NO_BIOGRAPHY,
             ContentExportAsset.AlbumEditorial("album", null) to ContentExportReason.NO_EDITORIAL,
         )
-        assertEquals(6, assets.map { it.first.kind }.toSet().size)
+        assertEquals(7, assets.map { it.first.kind }.toSet().size)
         assets.forEach { (asset, reason) ->
             assertEquals(reason, asset.unavailableReason())
             assertNotEquals(reason.message("en"), reason.message("zh-CN"))
@@ -38,6 +39,21 @@ class ContentExportModelsTest {
             "https://cdn.example/art/200x200bb.jpg?next=/200x200.jpg", 4000, 3000,
         ).jpegUrl())
         assertEquals("https://cdn.example/art/200x200bb.jpg", ArtworkImageSource("https://cdn.example/art/200x200bb.jpg", 4000, 3000).jpegUrl(false))
+    }
+
+    @Test fun `wordmark template requests a native-size PNG and concrete URLs keep their published format`() {
+        val logo = ArtworkImageSource("https://is1-ssl.mzstatic.com/image/thumb/lPXHgVOK2LRp_AkQZj_K8A/{w}x{h}{c}.{f}", 4826, 1264)
+        assertEquals("https://is1-ssl.mzstatic.com/image/thumb/lPXHgVOK2LRp_AkQZj_K8A/4826x1264bb.png", logo.pngUrl())
+        assertEquals("https://cdn.example/logo/4826x1264bb.png", ArtworkImageSource("https://cdn.example/logo/600x157bb.png", 4826, 1264).pngUrl())
+        assertEquals("https://cdn.example/logo/600x157bb.jpg", ArtworkImageSource("https://cdn.example/logo/600x157bb.jpg").pngUrl())
+        // Jackson Wang's logo template hard-codes JPEG; the templated size segment is asked for PNG instead.
+        assertEquals("https://is1-ssl.mzstatic.com/image/thumb/Features/v4/b0/x/logo.png/2880x449bb.png?s=1", ArtworkImageSource(
+            "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/b0/x/logo.png/{w}x{h}bb.jpg?s=1", 2880, 449).pngUrl())
+        assertEquals("https://cdn.example/a/2880x449bb.jpg", ArtworkImageSource("https://cdn.example/a/{w}x{h}bb.jpg", 2880, 449).jpegUrl())
+        assertExportReason(ContentExportReason.ARTWORK_DIMENSIONS_UNKNOWN) { ArtworkImageSource("https://cdn.example/{w}x{h}.{f}").pngUrl() }
+        assertEquals("image/png", ContentExportFileFormat.PNG.mimeType)
+        assertTrue(contentExportFileName("Artist", ContentExportKind.ARTIST_WORDMARK, ContentExportFileFormat.PNG, "id").endsWith("-artist-wordmark-id.png"))
+        assertTrue(ContentExportKind.ARTIST_WORDMARK.label("en").contains("PNG"))
     }
 
     @Test fun `unknown artwork dimensions never fabricate an original size`() {

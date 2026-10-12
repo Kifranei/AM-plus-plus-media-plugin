@@ -5,7 +5,7 @@ complete method signature (owner, static/instance descriptor and return type) an
 adaptation pinned one, the field name. No APK code is executed and no file is written.
 
 Usage:
-    python scripts/verify-host-profile.py apple-music-1606.apk --glass
+    python scripts/verify-host-profile.py apple-music-1609.apk --glass
 """
 import argparse
 import io
@@ -110,7 +110,7 @@ PROFILE_DIRECTORY = Path(__file__).resolve().parents[1] / "media-plugin/src/main
 
 
 def load_profiles():
-    data = json.loads((PROFILE_DIRECTORY / "applemusic-1606.json").read_text(encoding="utf-8"))
+    data = json.loads((PROFILE_DIRECTORY / "applemusic-1609.json").read_text(encoding="utf-8"))
     return {(data["versionName"], str(data["versionCode"])): data["verification"]}
 
 
@@ -132,7 +132,7 @@ def main():
     parser.add_argument("package", type=Path, help="APK, XAPK or APKS (all DEX splits are checked)")
     parser.add_argument("--version-name", default=None)
     parser.add_argument("--version-code", default=None)
-    parser.add_argument("--profile", type=Path, default=PROFILE_DIRECTORY / "applemusic-1606.json", help="plugin host profile")
+    parser.add_argument("--profile", type=Path, default=PROFILE_DIRECTORY / "applemusic-1609.json", help="plugin host profile")
     parser.add_argument("--glass", action="store_true", help="also verify the phone glass seams")
     args = parser.parse_args()
 

@@ -15,7 +15,7 @@ import android.view.ViewTreeObserver
 import android.widget.TextView
 import kotlin.math.roundToInt
 
-/** Tablets place the caption beside the route icon; taps still use the system picker. */
+/** The caption sits under the route icon; taps still use the system picker. */
 internal class AudioOutputDeviceLabel(private val button: View, playerRootId: Int,
     private val updateIcon: (OutputDeviceIcon) -> Unit, private val updatePresentation: () -> Unit,
     private val onDetached: () -> Unit) : AutoCloseable {
@@ -40,9 +40,7 @@ internal class AudioOutputDeviceLabel(private val button: View, playerRootId: In
     }
     private val parentPosition = IntArray(2)
     private val buttonPosition = IntArray(2)
-    private val otherPosition = IntArray(2)
     private fun id(name: String) = button.resources.getIdentifier(name, "id", button.context.packageName)
-    private val nearbyIds = listOf(id("player_lyrics"), id("player_queue"), id("shareplay_badge")).filter { it != 0 }
     private val preDraw = ViewTreeObserver.OnPreDrawListener { updatePresentation(); layout(); true }
     private val tree = parent.viewTreeObserver
     private val callback = object : AudioDeviceCallback() {
@@ -97,44 +95,22 @@ internal class AudioOutputDeviceLabel(private val button: View, playerRootId: In
         val density = button.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).roundToInt()
         parent.getLocationInWindow(parentPosition)
-        TabletPlayerActionsIntegration.presentationView(button).getLocationInWindow(buttonPosition)
-        val tablet = button.resources.configuration.smallestScreenWidthDp >= 600
+        button.getLocationInWindow(buttonPosition)
         val height = maxOf(dp(18), kotlin.math.ceil(label.paint.fontSpacing.toDouble()).toInt())
         val buttonLeft = buttonPosition[0] - parentPosition[0]
         val buttonTop = buttonPosition[1] - parentPosition[1]
-        val placement = if (tablet) {
-            val controls = button.parent as? ViewGroup
-            controls?.getLocationInWindow(otherPosition)
-            val columnRight = controls?.let {
-                val right = otherPosition[0] - parentPosition[0] + it.width - dp(8)
-                // The song column can be centered while its output action stays at the screen's left edge.
-                if (buttonLeft < otherPosition[0] - parentPosition[0] - dp(8)) minOf(right, parent.width / 2 - dp(8)) else right
-            } ?: parent.width
-            val labelTop = buttonTop + (button.height - height) / 2
-            val blockers = controls?.let { group -> nearbyIds.mapNotNull { key ->
-                val view = group.findViewById<View>(key)?.takeIf { it.isShown && it.alpha > .01f } ?: return@mapNotNull null
-                view.getLocationInWindow(otherPosition)
-                val left = otherPosition[0] - parentPosition[0]
-                val top = otherPosition[1] - parentPosition[1]
-                left.takeIf { it >= buttonLeft + button.width / 2 && top < labelTop + height && top + view.height > labelTop }
-            } }.orEmpty()
-            AudioOutputLabelGeometry.beside(PlayerVolumeRegion(buttonLeft, buttonTop, button.width, button.height),
-                parent.width, parent.height, columnRight, blockers.minOrNull(), dp(24), dp(8), height, dp(240))
-        } else {
-            val width = minOf(dp(120), parent.width)
-            AudioOutputLabelPlacement((buttonLeft + button.width / 2 - width / 2).coerceIn(0, (parent.width - width).coerceAtLeast(0)),
-                (buttonTop + button.height - dp(3)).coerceAtMost(parent.height - height).coerceAtLeast(0), width, height)
-        }
-        if (placement == null) { label.visibility = View.INVISIBLE; return }
+        val labelWidth = minOf(dp(120), parent.width)
+        val placement = AudioOutputLabelPlacement((buttonLeft + button.width / 2 - labelWidth / 2).coerceIn(0, (parent.width - labelWidth).coerceAtLeast(0)),
+            (buttonTop + button.height - dp(3)).coerceAtMost(parent.height - height).coerceAtLeast(0), labelWidth, height)
         val (left, top, width) = placement
-        label.gravity = if (tablet) Gravity.LEFT or Gravity.CENTER_VERTICAL else Gravity.CENTER
+        label.gravity = Gravity.CENTER
         val params = label.layoutParams
         if (params.width != width || params.height != height) { params.width = width; params.height = height; label.layoutParams = params }
         label.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
         label.layout(left, top, left + width, top + height)
         var ancestor: View? = button
         var alpha = 1f
-        while (ancestor != null && ancestor !== parent) { alpha *= TabletPlayerActionsIntegration.nativeAlpha(ancestor); ancestor = ancestor.parent as? View }
+        while (ancestor != null && ancestor !== parent) { alpha *= ancestor.alpha; ancestor = ancestor.parent as? View }
         label.alpha = alpha; label.visibility = View.VISIBLE
     }
     override fun close() {

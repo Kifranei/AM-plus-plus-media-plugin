@@ -9,6 +9,10 @@ internal sealed class ContentExportAsset(val kind: ContentExportKind, open val t
     data class ArtistArtwork(override val title: String, val artwork: ArtworkImageSource?) :
         ContentExportAsset(ContentExportKind.ARTIST_ARTWORK, title)
 
+    /** The stylized artist-name logo (editorialArtwork["musicContentColorLogoTrimmed"]); transparent PNG when the template allows. */
+    data class ArtistWordmark(override val title: String, val artwork: ArtworkImageSource?) :
+        ContentExportAsset(ContentExportKind.ARTIST_WORDMARK, title)
+
     /** A silent video is a separate asset from the artist's still JPEG. */
     data class ArtistMotionArtwork(override val title: String, val sources: List<MotionArtworkSource>) :
         ContentExportAsset(ContentExportKind.ARTIST_MOTION_ARTWORK, title)
@@ -30,6 +34,7 @@ internal sealed class ContentExportAsset(val kind: ContentExportKind, open val t
 
     fun unavailableReason(): ContentExportReason? = when (this) {
         is ArtistArtwork -> ContentExportReason.NO_ARTIST_ARTWORK.takeIf { artwork?.url.isNullOrBlank() }
+        is ArtistWordmark -> ContentExportReason.NO_ARTIST_WORDMARK.takeIf { artwork?.url.isNullOrBlank() }
         is ArtistMotionArtwork -> ContentExportReason.NO_ARTIST_MOTION_ARTWORK.takeIf { sources.none { it.url.isNotBlank() } }
         is AlbumMotionArtwork -> ContentExportReason.NO_MOTION_ARTWORK.takeIf { sources.none { it.url.isNotBlank() } }
         is TtmlLyrics -> ContentExportReason.NO_TTML.takeIf { rawTtml.isNullOrBlank() }
@@ -40,6 +45,7 @@ internal sealed class ContentExportAsset(val kind: ContentExportKind, open val t
 
 internal enum class ContentExportKind(val filenameTag: String, private val zh: String, private val en: String) {
     ARTIST_ARTWORK("artist-artwork", "艺术家封面（静态 JPEG）", "Artist artwork (still JPEG)"),
+    ARTIST_WORDMARK("artist-wordmark", "艺术家字标（透明 PNG）", "Artist wordmark (transparent PNG)"),
     ARTIST_MOTION_ARTWORK("artist-motion", "艺术家动态封面（无声 MP4）", "Artist motion artwork (silent MP4)"),
     ALBUM_MOTION_ARTWORK("album-motion", "专辑动态封面（无声 MP4）", "Album motion artwork (silent MP4)"),
     TTML_LYRICS("lyrics", "原始 TTML 歌词", "Original TTML lyrics"),
@@ -56,7 +62,12 @@ internal data class ArtworkImageSource(
     val originalHeight: Int? = null,
     val crop: String = "bb",
 ) {
-    fun jpegUrl(useOriginalSize: Boolean = true): String {
+    fun jpegUrl(useOriginalSize: Boolean = true): String = resolvedUrl("jpg", useOriginalSize)
+
+    /** Template URLs ask the image service for a lossless PNG (alpha kept); concrete URLs stay as published. */
+    fun pngUrl(useOriginalSize: Boolean = true): String = resolvedUrl("png", useOriginalSize)
+
+    private fun resolvedUrl(format: String, useOriginalSize: Boolean): String {
         val address = url.trim()
         val suffixAt = address.indexOfAny(charArrayOf('?', '#')).takeIf { it >= 0 } ?: address.length
         var resolved = address.substring(0, suffixAt)
@@ -70,12 +81,18 @@ internal data class ArtworkImageSource(
             resolved = resolved.replace("{w}", originalWidth.toString(), true).replace("{h}", originalHeight.toString(), true)
             // Only native-sized last path components are rewritten; signed query parameters are untouched.
             if (useOriginalSize) {
-                resolved = resolved.replace(Regex("/\\d+x\\d+(?=[a-zA-Z-]*\\.(?:jpg|jpeg)$)")) {
+                resolved = resolved.replace(Regex("/\\d+x\\d+(?=[a-zA-Z-]*\\.(?:jpg|jpeg|png|webp)$)")) {
                     "/${originalWidth}x${originalHeight}"
                 }
             }
         }
-        return resolved.replace("{f}", "jpg", true).replace("{c}", crop, true) + suffix
+        resolved = resolved.replace("{f}", format, true).replace("{c}", crop, true)
+        // Some editorial logo templates hard-code ".../{w}x{h}bb.jpg"; the image service renders the
+        // same size segment as PNG (with alpha) when asked, so only templated size segments are rewritten.
+        if (format == "png" && needsDimensions) {
+            resolved = resolved.replace(Regex("(/\\d+x\\d+[a-zA-Z-]*)\\.(?:jpg|jpeg|webp)$")) { "${it.groupValues[1]}.png" }
+        }
+        return resolved + suffix
     }
 
     override fun toString() = "ArtworkImageSource(url=<redacted>, originalWidth=$originalWidth, originalHeight=$originalHeight)"
@@ -136,12 +153,13 @@ internal object ContentExportHtml {
 }
 
 internal enum class ContentExportFileFormat(val mimeType: String, val extension: String) {
-    JPEG("image/jpeg", "jpg"), MP4("video/mp4", "mp4"), TTML("application/ttml+xml", "ttml"), TEXT("text/plain", "txt")
+    JPEG("image/jpeg", "jpg"), PNG("image/png", "png"), MP4("video/mp4", "mp4"), TTML("application/ttml+xml", "ttml"), TEXT("text/plain", "txt")
 }
 
 /** No exception messages or URLs are exposed to UI or logging. */
 internal enum class ContentExportReason(private val zh: String, private val en: String) {
     NO_ARTIST_ARTWORK("此艺术家没有可用的封面", "No artist artwork is available"),
+    NO_ARTIST_WORDMARK("此艺术家没有特色字标", "This artist has no wordmark"),
     NO_ARTIST_MOTION_ARTWORK("此艺术家没有可用的动态封面", "No motion artwork is available for this artist"),
     NO_MOTION_ARTWORK("此专辑没有可用的动态封面", "No motion artwork is available for this album"),
     NO_TTML("尚未捕获此歌曲的原始 TTML 歌词", "Original TTML lyrics have not been captured for this song"),
@@ -150,6 +168,7 @@ internal enum class ContentExportReason(private val zh: String, private val en: 
     ARTWORK_DIMENSIONS_UNKNOWN("封面地址模板缺少原始尺寸", "The artwork URL template has no original dimensions"),
     UNSUPPORTED_URL("资产地址不可用或协议不受支持", "The asset URL is unavailable or uses an unsupported scheme"),
     UNSUPPORTED_ARTWORK_FORMAT("封面不是可用的 JPEG 图片", "The artwork is not a valid JPEG image"),
+    UNSUPPORTED_WORDMARK_FORMAT("字标不是可用的 PNG/JPEG 图片", "The wordmark is not a valid PNG or JPEG image"),
     INVALID_TTML("捕获内容不是完整的 TTML 文档", "The captured content is not a complete TTML document"),
     ENCRYPTED_MEDIA("不支持下载加密或 DRM 动态封面", "Encrypted or DRM motion artwork cannot be exported"),
     AUDIO_NOT_ALLOWED("仅支持无声封面视频，不下载音乐或音轨", "Only silent artwork video is supported; music and audio tracks are excluded"),

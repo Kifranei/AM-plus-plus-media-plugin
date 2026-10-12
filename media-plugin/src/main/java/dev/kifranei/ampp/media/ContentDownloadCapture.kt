@@ -23,9 +23,12 @@ internal data class ContentDownloadPage(
     val motion: List<MotionArtworkSource> = emptyList(),
     val biography: ContentExportText? = null,
     val editorial: ContentExportText? = null,
+    /** Only present when the native artist exposes a stylized name logo. */
+    val wordmark: ArtworkImageSource? = null,
 ) {
     fun assets(): List<ContentExportAsset> = when (kind) {
-        ContentDownloadPageKind.ARTIST -> listOf(ContentExportAsset.ArtistArtwork(title, artwork),
+        ContentDownloadPageKind.ARTIST -> listOfNotNull(ContentExportAsset.ArtistArtwork(title, artwork),
+            wordmark?.let { ContentExportAsset.ArtistWordmark(title, it) },
             ContentExportAsset.ArtistMotionArtwork(title, motion), ContentExportAsset.ArtistBiography(title, biography))
         ContentDownloadPageKind.ALBUM -> listOf(ContentExportAsset.AlbumMotionArtwork(title, motion), ContentExportAsset.AlbumEditorial(title, editorial))
     }
@@ -131,8 +134,13 @@ internal class ContentDownloadPageDecoder(private val options: ContentDownloadCa
             return ArtworkImageSource(url, dimension(get(artwork, "content-download-artwork-width")), dimension(get(artwork, "content-download-artwork-height")))
         }
         val primary = image(get(attributes, "content-download-attrs-artwork"))
-        val editorialArt = (get(attributes, "content-download-attrs-editorial-artwork") as? Map<*, *>)?.values
-            ?.take(options.maxSources)?.mapNotNull(::image)?.maxByOrNull { (it.originalWidth ?: 0).toLong() * (it.originalHeight ?: 0) }
+        val editorialEntries = (get(attributes, "content-download-attrs-editorial-artwork") as? Map<*, *>)?.entries
+            ?.take(options.maxSources).orEmpty()
+        val wordmark = if (kind == ContentDownloadPageKind.ARTIST)
+            editorialEntries.firstOrNull { it.key == ARTIST_WORDMARK_ARTWORK_KEY }?.let { image(it.value) } else null
+        // The logo is a wide transparent wordmark, never a usable artist portrait fallback.
+        val editorialArt = editorialEntries.filter { it.key != ARTIST_WORDMARK_ARTWORK_KEY }.mapNotNull { image(it.value) }
+            .maxByOrNull { (it.originalWidth ?: 0).toLong() * (it.originalHeight ?: 0) }
         val motion = ArrayList<MotionArtworkSource>()
         val videos = get(attributes, "content-download-attrs-videos") as? Map<*, *>
         videos?.values?.take(options.maxSources)?.forEach { video ->
@@ -148,7 +156,7 @@ internal class ContentDownloadPageDecoder(private val options: ContentDownloadCa
         val editorial = text(get(notes, "content-download-notes-standard")) ?: text(get(notes, "content-download-notes-short"))
         return ContentDownloadPage(kind, id, title, primary ?: editorialArt,
             boundedMotion(motion), if (kind == ContentDownloadPageKind.ARTIST) text(get(attributes, "content-download-attrs-biography")) else null,
-            if (kind == ContentDownloadPageKind.ALBUM) editorial else null)
+            if (kind == ContentDownloadPageKind.ALBUM) editorial else null, wordmark)
     }
 
     /** Optional seam for an already requested JSON entity. The complete response is never retained. */
@@ -166,8 +174,10 @@ internal class ContentDownloadPageDecoder(private val options: ContentDownloadCa
             return ArtworkImageSource(url, dimension(art?.opt("width")), dimension(art?.opt("height")))
         }
         val primary = image(attributes.optJSONObject("artwork"))
-        val editorialArt = attributes.optJSONObject("editorialArtwork")?.let { map ->
-            map.keys().asSequence().take(options.maxSources).mapNotNull { image(map.optJSONObject(it)) }
+        val editorialMap = attributes.optJSONObject("editorialArtwork")
+        val wordmark = if (kind == ContentDownloadPageKind.ARTIST) image(editorialMap?.optJSONObject(ARTIST_WORDMARK_ARTWORK_KEY)) else null
+        val editorialArt = editorialMap?.let { map ->
+            map.keys().asSequence().take(options.maxSources).filter { it != ARTIST_WORDMARK_ARTWORK_KEY }.mapNotNull { image(map.optJSONObject(it)) }
                 .maxByOrNull { (it.originalWidth ?: 0).toLong() * (it.originalHeight ?: 0) }
         }
         val motion = ArrayList<MotionArtworkSource>()
@@ -187,7 +197,7 @@ internal class ContentDownloadPageDecoder(private val options: ContentDownloadCa
         val notes = attributes.optJSONObject("editorialNotes")
         return ContentDownloadPage(kind, id, title, primary ?: editorialArt, boundedMotion(motion),
             if (kind == ContentDownloadPageKind.ARTIST) text(attributes.opt("artistBio")) else null,
-            if (kind == ContentDownloadPageKind.ALBUM) text(notes?.opt("standard")) ?: text(notes?.opt("short")) else null)
+            if (kind == ContentDownloadPageKind.ALBUM) text(notes?.opt("standard")) ?: text(notes?.opt("short")) else null, wordmark)
     }
 
     private fun text(value: Any?): ContentExportText? = (value as? String)?.takeIf { it.isNotBlank() && it.length <= options.maxTextChars }
@@ -202,6 +212,9 @@ internal class ContentDownloadPageDecoder(private val options: ContentDownloadCa
         return if (hls.isNotEmpty()) direct.take(maxOf(0, options.maxSources - 1)) + hls.take(1) else direct.take(options.maxSources)
     }
 }
+
+/** 1609 EditorialImageType.ARTIST_LOGO, read by profiles2.a via ka.d.a.b(entity, key) for the artist header. */
+internal const val ARTIST_WORDMARK_ARTWORK_KEY = "musicContentColorLogoTrimmed"
 
 /** Coroutine resumes pass zero arguments; only a verified saved ID from the loader's continuation is used. */
 internal fun contentDownloadLoaderSongId(argument: Any?, resumeLabel: Int?, savedId: Long?): Long? {

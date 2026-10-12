@@ -76,9 +76,6 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         install(text.iosControls, configured.iosControls, "shared:applemusic-player-output-button") {
             IosMediaControls(app, loader, build).install()
         }
-        install("Tablet player controls", configured.iosControls, "shared:applemusic-tablet-player-actions") {
-            TabletPlayerActionsIntegration(build).install()
-        }
         install(text.sharing, configured.sharing, "shared:applemusic-lyric-share-image") {
             CardSharingFeature().install(CardSharingIntegration(app, loader, build))
         }
@@ -94,8 +91,12 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         install(text.sleepGlass, configured.playerGlass, "shared:applemusic-sleep-timer") {
             PlayerDialogsIntegration(build, confirmation = false, sleep = true).install()
         }
-        install(text.volumeBar, configured.volumeBar, "shared:applemusic-player-volume") {
-            PlayerVolumeIntegration(build, compactTablet = configured.iosControls).install()
+        // OPlus ROMs (ColorOS / realme UI / OxygenOS) ship a larger default DPI that breaks the volume bar.
+        if (configured.volumeBar && OplusRomDetector.current) {
+            status += "${text.volumeBar}: ${text.volumeBarOplusUnsupported}"
+            runtime.log("${text.volumeBar}: force-disabled on OPlus ROM", null)
+        } else install(text.volumeBar, configured.volumeBar, "shared:applemusic-player-volume") {
+            PlayerVolumeIntegration(build).install()
         }
         install(text.playerAppearance, configured.playerHandle || configured.systemCorners, "shared:applemusic-player-page-chrome") {
             PlayerPageChromeIntegration(build, configured.playerHandle, configured.systemCorners).install()
@@ -116,6 +117,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
             textSize = 16f
         })
         val switches = ArrayList<Switch>()
+        val locked = HashSet<Switch>()
         val saveButton = Button(context).apply { this.text = text.save }
         fun persist() {
             val next = draft
@@ -125,7 +127,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
                 val result = runCatching { store.write(next) }
                 main.post {
                     if (closed.get()) return@post
-                    switches.forEach { it.isEnabled = true }
+                    switches.forEach { it.isEnabled = it !in locked }
                     saveButton.isEnabled = true
                     result.onSuccess { Toast.makeText(context, text.saved, Toast.LENGTH_SHORT).show() }
                         .onFailure {
@@ -135,10 +137,14 @@ class MediaIntegrationsPlugin : AmppPlugin() {
                 }
             }
         }
-        fun option(title: String, checked: Boolean, description: String? = null, change: (MediaSettings, Boolean) -> MediaSettings) {
-            val control = Switch(context).apply { this.text = title; isChecked = checked; minHeight = dp(56) }
+        fun option(title: String, checked: Boolean, description: String? = null, unavailable: Boolean = false,
+                   change: (MediaSettings, Boolean) -> MediaSettings) {
+            val control = Switch(context).apply { this.text = title; isChecked = checked && !unavailable; minHeight = dp(56) }
             switches += control
-            control.setOnCheckedChangeListener { _, enabled ->
+            if (unavailable) { locked += control; control.isEnabled = false }
+            control.setOnCheckedChangeListener { button, enabled ->
+                // The SDK has no locked state: refuse to enable and revert if the switch is ever toggled.
+                if (unavailable && enabled) { button.isChecked = false; return@setOnCheckedChangeListener }
                 draft = change(draft, enabled)
                 persist()
             }
@@ -155,7 +161,10 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         option(text.playerGlass, draft.playerGlass, text.playerGlassDescription) { state, enabled -> state.copy(playerGlass = enabled) }
         option(text.playerHandle, draft.playerHandle) { state, enabled -> state.copy(playerHandle = enabled) }
         option(text.systemCorners, draft.systemCorners) { state, enabled -> state.copy(systemCorners = enabled) }
-        option(text.volumeBar, draft.volumeBar) { state, enabled -> state.copy(volumeBar = enabled) }
+        val oplus = OplusRomDetector.current
+        option(text.volumeBar, draft.volumeBar, if (oplus) text.volumeBarOplusUnsupported else null, unavailable = oplus) { state, enabled ->
+            state.copy(volumeBar = enabled && !oplus)
+        }
         option(text.contentDownloads, draft.contentDownloads, text.contentDownloadsDescription) { state, enabled -> state.copy(contentDownloads = enabled) }
         saveButton.setOnClickListener { persist() }
         layout.addView(saveButton)

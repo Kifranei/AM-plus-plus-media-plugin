@@ -8,8 +8,8 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
         "Enable features below. After saving, fully stop and reopen Apple Music.")
     val lyricon get() = text("词幕集成", "Lyricon integration")
     val iosControls get() = text("使用 iOS 媒体控制按钮", "Use the iOS media control button")
-    val iosControlsDescription get() = text("调用系统音频输出面板；平板采用紧凑歌曲信息和较小的播放图标，设备名显示在输出图标右侧。双栏时媒体输出放左下，歌词和队列放右下，翻译放右上，随机和循环放在上一曲／下一曲外侧。点击歌词按钮可收起右栏并居中播放区域，再点可展开。",
-        "Open the system audio output panel. Use compact song details and smaller playback icons on tablets, with the device name beside the output icon. In two-column layouts, place output at the lower left, lyrics and queue at the lower right, translation at the upper right, and shuffle and repeat beside Previous and Next. Tap Lyrics to hide the right pane and center the player; tap again to reopen it.")
+    val iosControlsDescription get() = text("调用系统音频输出面板，设备名显示在输出图标下方。",
+        "Open the system audio output panel and show the device name under the output icon.")
     val sharing get() = text("解除分享白名单限制", "Remove sharing whitelist restrictions")
     val sharingDescription get() = text("为歌曲卡片和歌词卡片增加系统图片分享和保存到相册入口。",
         "Add system image sharing and Save to Photos to song and lyrics cards.")
@@ -23,6 +23,8 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val playerHandle get() = text("播放页顶部把手", "Player screen handle")
     val systemCorners get() = text("播放页系统圆角", "Use system corner radius on the player screen")
     val volumeBar get() = text("播放页音量条", "Player screen volume slider")
+    val volumeBarOplusUnsupported get() = text("欧加真（ColorOS / realme UI / OxygenOS）系统暂不支持，已自动禁用",
+        "Not supported on ColorOS / realme UI / OxygenOS (OPPO, realme, OnePlus) yet; disabled automatically.")
     val contentDownloads get() = text("下载封面、歌词和介绍", "Download artwork, lyrics and descriptions")
     val contentDownloadsDescription get() = text("在艺术家和专辑详情页下载图片、MP4 动态封面及介绍；播放页更多菜单或长按歌词按钮下载原始 TTML。保存到 Download/AM++。",
         "Download artwork, MP4 motion artwork and descriptions from artist and album pages. Export original TTML from the player More menu or by holding the lyrics button. Save to Download/AM++.")

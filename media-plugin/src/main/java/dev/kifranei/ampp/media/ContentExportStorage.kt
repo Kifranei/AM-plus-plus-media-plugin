@@ -127,6 +127,18 @@ internal class ContentExportStorage internal constructor(
                     validateExportJpeg(staged)
                     ContentExportFileFormat.JPEG
                 }
+                is ContentExportAsset.ArtistWordmark -> {
+                    job.phase(ContentExportPhase.DOWNLOADING)
+                    val source = checkNotNull(asset.artwork).pngUrl(options.useOriginalArtworkSize)
+                    val budget = ContentExportByteBudget(options.maxBytes, job.control)
+                    withExportNetwork { network.open(source, job.control) }.use { response ->
+                        FileOutputStream(staged).use { output ->
+                            copyContentExportBytes(response.input, output, budget, response.contentLength, job::progress)
+                            output.fd.sync()
+                        }
+                    }
+                    detectExportWordmarkFormat(staged)
+                }
                 is ContentExportAsset.ArtistMotionArtwork -> {
                     job.phase(ContentExportPhase.DOWNLOADING)
                     MotionArtworkDownload(network, options, ContentExportReason.NO_ARTIST_MOTION_ARTWORK, ::reportMotionStructure)
@@ -513,6 +525,26 @@ private fun validateExportJpeg(file: File) {
         input.seek(input.length() - 2)
         if (input.readUnsignedShort() != 0xffd9) exportFailure(ContentExportReason.UNSUPPORTED_ARTWORK_FORMAT)
     }
+}
+
+/** PNG is expected; a concrete non-template URL may still publish JPEG, which is kept unchanged. */
+internal fun detectExportWordmarkFormat(file: File): ContentExportFileFormat {
+    RandomAccessFile(file, "r").use { input ->
+        val png = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
+        if (input.length() >= 20) {
+            val header = ByteArray(8); input.readFully(header)
+            if (header.contentEquals(png)) {
+                // A complete PNG ends with the fixed IEND chunk (length 0, type, CRC).
+                input.seek(input.length() - 12)
+                val tail = ByteArray(12); input.readFully(tail)
+                val iend = byteArrayOf(0, 0, 0, 0, 0x49, 0x45, 0x4e, 0x44, 0xae.toByte(), 0x42, 0x60, 0x82.toByte())
+                if (tail.contentEquals(iend)) return ContentExportFileFormat.PNG
+                exportFailure(ContentExportReason.UNSUPPORTED_WORDMARK_FORMAT)
+            }
+        }
+    }
+    try { validateExportJpeg(file) } catch (_: ContentExportException) { exportFailure(ContentExportReason.UNSUPPORTED_WORDMARK_FORMAT) }
+    return ContentExportFileFormat.JPEG
 }
 
 private fun checkExportTextSize(text: String, options: ContentExportOptions) {
