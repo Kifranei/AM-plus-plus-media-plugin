@@ -20,7 +20,7 @@ kotlin { compilerOptions {
     freeCompilerArgs.add("-Xlambdas=class")
 } }
 
-val pluginVersion = "1.1.0"
+val pluginVersion = "1.2.0"
 val hostSdk = files(
     rootProject.file("lib/ampp-plugin-api-v1.jar"),
     rootProject.file("lib/ampp-backdrop-host.jar"),

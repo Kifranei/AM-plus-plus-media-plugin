@@ -1,6 +1,6 @@
 # AM 媒体增强插件
 
-用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606**。提供八个功能开关，中英文设置跟随界面语言。
+用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1609**。提供八个功能开关，中英文设置跟随界面语言。
 
 下载：[最新发布](https://github.com/Kifranei/AM-plus-plus-media-plugin/releases/latest)。
 
@@ -14,7 +14,7 @@
 | 播放页界面启用液态玻璃 | 一个开关为睡眠定时、删除确认弹窗、更多菜单和音质弹窗启用液态玻璃效果。更多菜单实时模糊播放页，保留原生操作；删除确认使用浅灰胶囊按钮和红色删除文字；睡眠定时保留原生选项与勾选；音质弹窗使用白色图标、居中参数和同排「设置」「好」按钮。Android 13+ 可用。 |
 | 播放页顶部把手 | 手机和平板普通封面显示 Flamingo 风格的非交互把手；全屏封面隐藏，随原生展开进度显隐，保留原生手势。 |
 | 播放页系统圆角 | 读取 Android 12+ 系统圆角，接口缺失时使用系统资源回退；原生背景和动画层使用相同顶部圆角，避免裁剪正在展开的玻璃卡片。 |
-| 播放页音量条 | 手机和平板、横竖屏的封面、歌词和播放列表页均支持 iOS 风格音量条，控制系统媒体音量并同步硬件音量键。按当前控件实际尺寸预留高度，适应不同系统及 AM 内部 DPI；双栏时音量条留在播放控件所在列。原生进出动画期间保持控件布局，切页时逐帧恢复音量条的有效位置。收起播放页时隐藏，固定音量设备显示为不可调节。平板同时开启 iOS 媒体控制时，按实测控件高度紧凑排列进度条、播放键、音量条和底部动作，为封面保留更多空间。 |
+| 播放页音量条 | 手机和平板、横竖屏的封面、歌词和播放列表页均支持 iOS 风格音量条，控制系统媒体音量并同步硬件音量键。按当前控件实际尺寸预留高度，适应不同系统及 AM 内部 DPI；双栏时音量条留在播放控件所在列。原生进出动画期间保持控件布局，切页时逐帧恢复音量条的有效位置。收起播放页时隐藏，固定音量设备显示为不可调节。平板同时开启 iOS 媒体控制时，按实测控件高度紧凑排列进度条、播放键、音量条和底部动作，为封面保留更多空间。OPPO / realme / OnePlus（ColorOS / realme UI / OxygenOS）因默认 DPI 较大暂不支持，自动禁用且开关不可开启。 |
 | 下载封面、歌词和介绍 | 艺术家详情页标题旁下载静态 JPEG、动态 MP4 和传记；专辑详情页下载动态 MP4 和介绍。播放页更多菜单或长按歌词按钮保存原始 TTML，包括逐词时间、翻译、注音及人声信息。保存到 `Download/AM++`，支持取消，失败后清理未完成文件。 |
 
 ## 使用
@@ -32,7 +32,9 @@
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
 
-当前发布包为 `1.1.0 / 10`：音量条适应平板、横竖屏及不同 DPI；平板使用较小的歌曲信息和紧凑的底部控件，双栏按 iPad 风格排列，歌词可收起后居中。下方区域按播放时完整封面宽度对齐，暂停时保持宽度，轻微拖动和回弹后保留布局。手机切页保留三个原生动作按钮。静态封面尺寸跟随原生容器，旋转和后台返回时修复失效的背景缓存；保留原生播放／暂停缩放。更多玻璃菜单固定在窗口右上安全区。详情页提供内容下载，兼容动态视频时间轴和 Apple HLS 扩展属性；支持特殊 Logo 字标艺人的下载入口。构建及设备验证范围见 [验证记录](VALIDATION.md) 和 [布局验证](LAYOUT_VALIDATION.md)。
+v1.2.0 / 11 重新适配 Apple Music 7.0.0-beta / 1609（宿主 profile `applemusic-1609.json`）；移除了平板播放界面的全部修改（平板双栏/紧凑控件/歌词收起等），并移除对封面尺寸设置方法 `fragment.l.E1(boolean, Size)`（1609 中为 `fragment.m`）的 hook，以消除与其他注册的冲突。同时在欧加真（ColorOS / realme UI / OxygenOS）系统上自动禁用播放页音量条：按 `Build.MANUFACTURER`/`Build.BRAND` 及系统属性识别，即使已保存为开启也不安装，设置开关显示为关闭且不可切换。
+
+以下为 `1.1.0 / 10` 的历史说明：音量条适应平板、横竖屏及不同 DPI；平板使用较小的歌曲信息和紧凑的底部控件，双栏按 iPad 风格排列，歌词可收起后居中。下方区域按播放时完整封面宽度对齐，暂停时保持宽度，轻微拖动和回弹后保留布局。手机切页保留三个原生动作按钮。静态封面尺寸跟随原生容器，旋转和后台返回时修复失效的背景缓存；保留原生播放／暂停缩放。更多玻璃菜单固定在窗口右上安全区。详情页提供内容下载，兼容动态视频时间轴和 Apple HLS 扩展属性；支持特殊 Logo 字标艺人的下载入口。构建及设备验证范围见 [验证记录](VALIDATION.md) 和 [布局验证](LAYOUT_VALIDATION.md)。
 
 玻璃开关的中英文标题和说明：
 
@@ -56,7 +58,7 @@ v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。�
 ```powershell
 .\gradlew.bat :media-plugin:testDebugUnitTest :media-plugin:lintDebug :media-plugin:pluginZip
 python -B scripts/verify-sdk.py
-python -B scripts/verify-media-plugin.py media-plugin/build/dist/ampp-media-integrations-1.1.0.zip
+python -B scripts/verify-media-plugin.py media-plugin/build/dist/ampp-media-integrations-1.2.0.zip
 ```
 
 Linux/macOS 使用 `./gradlew`。产物位于 `media-plugin/build/dist/`。
@@ -66,7 +68,7 @@ Linux/macOS 使用 `./gradlew`。产物位于 `media-plugin/build/dist/`。
 可用自己的 Apple Music APK 验证目标符号：
 
 ```text
-python -B scripts/verify-host-profile.py apple-music-1606.apk --glass
+python -B scripts/verify-host-profile.py apple-music-1609.apk --glass
 ```
 
 代码通过 SDK 注册 Hook 和观察者，使用插件自己的版本适配表、素材和设置。验收与构建记录见 [VALIDATION.md](VALIDATION.md)。

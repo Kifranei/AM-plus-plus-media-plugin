@@ -120,7 +120,9 @@ internal class CardSharingIntegration(
             })
             hook(observer.getDeclaredMethod("onChanged", Any::class.java), object : PluginMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
-                    val owner = owningProgress.get(param.thisObject)
+                    // 1609 merges this observer into a shared synthetic lambda class; only
+                    // instances whose captured owner is the share progress fragment are ours.
+                    val owner = owningProgress.get(param.thisObject)?.takeIf(progress::isInstance) ?: return
                     val action = customAction(progressOption.get(owner)) ?: return
                     // This observer runs on the main thread after AM finishes generating
                     // the image. Suppress only our action's platform launch, including the

@@ -13,13 +13,13 @@ internal object PluginProfiles {
     lateinit var document: JSONObject
     private lateinit var loader: ClassLoader
     fun load(context: PluginContext) {
-        if (context.hostPackageName != "com.apple.android.music" || context.hostVersionName != "7.0.0-beta" || context.hostVersionCode != 1606L)
-            throw PluginUnsupportedException("仅适配 Apple Music 7.0.0-beta / 1606")
+        if (context.hostPackageName != "com.apple.android.music" || context.hostVersionName != "7.0.0-beta" || context.hostVersionCode != 1609L)
+            throw PluginUnsupportedException("仅适配 Apple Music 7.0.0-beta / 1609")
         loader = context.hostClassLoader
-        document = context.openAsset("applemusic-1606.json").bufferedReader().use { JSONObject(it.readText()) }
+        document = context.openAsset("applemusic-1609.json").bufferedReader().use { JSONObject(it.readText()) }
     }
     fun find(packageName: String, versionName: String, versionCode: Long): PluginProfiles? =
-        takeIf { packageName == "com.apple.android.music" && versionName == "7.0.0-beta" && versionCode == 1606L }
+        takeIf { packageName == "com.apple.android.music" && versionName == "7.0.0-beta" && versionCode == 1609L }
     fun type(name: String): Class<*> = when (name) {
         "void" -> Void.TYPE
         "int" -> Integer.TYPE

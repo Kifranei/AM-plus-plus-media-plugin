@@ -15,7 +15,7 @@ internal class PlayerContentDownloadsIntegration(private val build: TargetBuild,
     fun install(): TargetCapabilityInstall {
         val profile = PluginProfiles.find(build.packageName, build.versionName, build.versionCode)?.document
             ?: return TargetCapabilityInstall.Unsupported("No verified player TTML entry")
-        val names = profile.getJSONObject("tabletPlayerActions")
+        val names = profile.getJSONObject("audioOutput")
         val create = PluginProfiles.method("player-controller-create-view")
         val getView = PluginProfiles.method("player-fragment-view")
         val getId = PluginProfiles.method("content-download-item-id")

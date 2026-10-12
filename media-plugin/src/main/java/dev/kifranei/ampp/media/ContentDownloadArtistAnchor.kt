@@ -31,7 +31,7 @@ internal data class ContentDownloadArtistLabels(val values: Map<ContentDownloadA
                         ?.let(resources::getString)?.let(::normalizeContentDownloadTitle)?.takeIf(String::isNotEmpty)
                 }.getOrNull()
             }.toSet()
-            // Verified in the original 7.0.0-beta/1606 APK: la.y0.c, Aa.x and la.B.
+            // Resource names verified in Apple Music 7.0.0-beta/1606 and 1609.
             return ContentDownloadArtistLabels(mapOf(
                 ContentDownloadArtistControl.INFO to strings("ax_artist_information_button"),
                 ContentDownloadArtistControl.PLAY to strings("play_button"),
