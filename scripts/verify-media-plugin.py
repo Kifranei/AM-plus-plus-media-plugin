@@ -29,15 +29,25 @@ def main():
         manifest = json.loads(archive.read("plugin.json"))
         assert manifest["id"] == "dev.kifranei.ampp.media"
         source = json.loads((ROOT / "media-plugin/plugin.json").read_text(encoding="utf-8"))
-        assert manifest["versionName"] == source["versionName"] == "1.2.0"
-        assert manifest["versionCode"] == source["versionCode"] == 11
+        assert manifest["versionName"] == source["versionName"] == "1.3.0"
+        assert manifest["versionCode"] == source["versionCode"] == 12
         assert args.archive.name == f"ampp-media-integrations-{manifest['versionName']}.zip", args.archive.name
         assert manifest["formatVersion"] == manifest["apiVersion"] == 1
         assert manifest["minAndroidApi"] == 28
-        for asset in ("applemusic-1609.json", "ios-media-output.path", "ios-output-headphones.path",
+        for asset in ("profiles.json", "ios-media-output.path", "ios-output-headphones.path",
                       "ios-output-speaker.png", "ios-output-airpods.png", "licenses/AppleMusicOutputIcons.txt", "licenses/LyricProvider.txt",
                       "licenses/AndroidLiquidGlass.txt", "licenses/AMpp-GPL-3.0.txt"):
             assert archive.getinfo("assets/" + asset).file_size > 0, asset
+        index = json.loads(archive.read("assets/profiles.json"))
+        shipped = [(item["versionName"], item["versionCode"], item["asset"]) for item in index["profiles"]]
+        assert [code for _, code, _ in shipped] == [1606, 1607, 1609, 1611], shipped
+        assert {n for n in names if n.startswith("assets/applemusic-")} == {"assets/" + asset for _, _, asset in shipped}
+        for name, code, asset in shipped:
+            profile = json.loads(archive.read("assets/" + asset))
+            assert (profile["packageName"], profile["versionName"], profile["versionCode"]) == (index["packageName"], name, code), asset
+            assert profile["verification"]["version_code"] == str(code), asset
+            for contract in ("more-action-click", "player-controller-create-view", "lyrics-install-method"):
+                assert contract in profile["indexed"]["methodContracts"], (asset, contract)
         with zipfile.ZipFile(io.BytesIO(archive.read("code.jar"))) as code:
             assert "classes.dex" in code.namelist()
             for name in code.namelist():
@@ -57,7 +67,7 @@ def main():
         forbidden = ("Ldev/amenhancer/", "Lcom/apple/android/music/", "Lio/github/libxposed/",
                      "Lcom/kyant/backdrop/", "Landroidx/compose/")
         assert not any(name.startswith(forbidden) for name in definitions), "Private module, host or SDK code bundled"
-        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration")
+        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "ProfileIndex", "ProfileEntry")
         assert all("Ldev/kifranei/ampp/media/" + name + ";" in definitions for name in required)
         for name in ("BluetoothOutputName", "AudioOutputDeviceLabel", "AudioOutputLabelPlacement", "AudioOutputButtonVisibility", "IosDeviceOutputDrawable", "OutputDeviceIcon", "BluetoothOutputState",
                      "SystemAudioOutput", "AudioOutputRouting", "AudioOutputRoute", "AudioOutputKind", "AudioOutputState"):

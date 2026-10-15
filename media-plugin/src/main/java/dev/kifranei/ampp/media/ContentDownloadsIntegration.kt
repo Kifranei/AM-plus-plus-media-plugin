@@ -38,7 +38,7 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** Native 1609 page/loader adapter, including the Compose album pages used by the library. */
+/** Native page/loader adapter, including the Compose album pages used by the library. */
 internal class ContentDownloadsIntegration(
     private val application: Application,
     private val loader: ClassLoader,
@@ -143,7 +143,7 @@ internal class ContentDownloadsIntegration(
             // Reflection/SDK errors can embed arbitrary values in messages or causes.
             runCatching { MediaRuntime.log("Native content downloads install failed at $installStage", contentDownloadInstallError(error)) }
             lifetime.close()
-            TargetCapabilityInstall.Unsupported("Content downloads need the complete verified 1609 method/field/resource contract")
+            TargetCapabilityInstall.Unsupported("Content downloads need the complete verified method/field/resource contract")
                 .also { installation = it }
         }
     }

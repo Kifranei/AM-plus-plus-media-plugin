@@ -8,6 +8,7 @@ import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import kotlin.math.roundToInt
 
@@ -32,10 +33,22 @@ internal class AudioQualityGlassFeature {
         val frame = FrameLayout(moduleContext).apply { setPadding(dp(10), dp(10), dp(10), dp(10)) }
         val glass = PluginGlassHostView(moduleContext, bleedDp = 0)
         frame.addView(glass, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-        val backdrop = DialogWindowBackdrop(activity, glass)
+        // Same live PixelCopy path as the more menu so animated player chrome keeps sampling.
+        val backdrop = DialogWindowBackdrop(activity, glass, live = true)
+        var tree: ViewTreeObserver? = null
+        val preDraw = ViewTreeObserver.OnPreDrawListener {
+            backdrop.refreshPosition()
+            true
+        }
         glass.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-            override fun onViewAttachedToWindow(view: View) = Unit
-            override fun onViewDetachedFromWindow(view: View) { backdrop.close() }
+            override fun onViewAttachedToWindow(view: View) {
+                tree = view.viewTreeObserver.also { it.addOnPreDrawListener(preDraw) }
+            }
+            override fun onViewDetachedFromWindow(view: View) {
+                tree?.takeIf { it.isAlive }?.removeOnPreDrawListener(preDraw)
+                tree = null
+                backdrop.close()
+            }
         })
         val nativeContent = window.decorView.findViewById<ViewGroup>(android.R.id.content)
         val nativeChildren = (0 until nativeContent.childCount).map(nativeContent::getChildAt)

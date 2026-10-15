@@ -19,7 +19,7 @@ class MediaRuntimeTest {
         override fun getHostClassLoader(): ClassLoader = javaClass.classLoader!!
         override fun getHostPackageName() = "com.apple.android.music"
         override fun getHostVersionName() = "7.0.0-beta"
-        override fun getHostVersionCode() = 1609L
+        override fun getHostVersionCode() = 1611L
         override fun getDataDirectory(): File = error("Not used")
         override fun getCacheDirectory(): File = error("Not used")
         override fun openAsset(path: String): InputStream = error("Not used")

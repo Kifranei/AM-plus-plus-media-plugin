@@ -4,7 +4,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PlayerVolumeGeometryTest {
-    @Test fun `1609 phone fits the volume bar inside native controls without changing their height`() {
+    @Test fun `1611 phone fits the volume bar inside native controls without changing their height`() {
         // 1260x2800, 560 dpi: captured with the original volume switch disabled.
         val controlsHeight = 872
         val progressBottom = 167

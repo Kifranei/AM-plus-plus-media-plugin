@@ -28,8 +28,11 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         configured = store.read()
         context.onClose { writer.shutdown() }
         // Resolve contracts before any capability registers; all host knowledge stays in this ZIP.
-        if (configured.lyricon) listOf("lyrics-install-method", "player-metadata-publish-method", "metadata-to-playback-item-method")
-            .forEach(PluginProfiles::method)
+        // A profile without these contracts only loses Lyricon (its install reports Unsupported); never the whole plugin.
+        if (configured.lyricon) runCatching {
+            listOf("lyrics-install-method", "player-metadata-publish-method", "metadata-to-playback-item-method")
+                .forEach(PluginProfiles::method)
+        }.onFailure { context.log("Lyricon contracts unavailable for ${context.hostVersionName} (${context.hostVersionCode})", it) }
         context.log("SDK v1 media plugin prepared for ${context.hostVersionName} (${context.hostVersionCode})", null)
     }
     override fun onStart() {

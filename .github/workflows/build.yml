@@ -26,6 +26,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Verify host references
         run: python3 -B scripts/verify-sdk.py
+      - name: Verify shipped host profiles (APKs are not available in CI; versions without one are skipped)
+        run: python3 -B scripts/verify-all-profiles.py
       - name: Build and test
         run: ./gradlew :media-plugin:testDebugUnitTest :media-plugin:lintDebug :media-plugin:pluginZip --no-daemon
       - name: Verify plugin ZIP

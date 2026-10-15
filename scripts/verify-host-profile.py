@@ -5,7 +5,7 @@ complete method signature (owner, static/instance descriptor and return type) an
 adaptation pinned one, the field name. No APK code is executed and no file is written.
 
 Usage:
-    python scripts/verify-host-profile.py apple-music-1609.apk --glass
+    python scripts/verify-host-profile.py apple-music-1611.apk --glass   # the profile is chosen from the APK's own version
 """
 import argparse
 import io
@@ -109,9 +109,23 @@ def dex_classes(data):
 PROFILE_DIRECTORY = Path(__file__).resolve().parents[1] / "media-plugin/src/main/assets"
 
 
+def load_documents():
+    """Every shipped profile, keyed by (versionName, versionCode); assets/profiles.json is the index."""
+    index = json.loads((PROFILE_DIRECTORY / "profiles.json").read_text(encoding="utf-8"))
+    documents = {}
+    for entry in index["profiles"]:
+        data = json.loads((PROFILE_DIRECTORY / entry["asset"]).read_text(encoding="utf-8"))
+        assert (data["packageName"], data["versionName"], int(data["versionCode"])) == (
+            index["packageName"], entry["versionName"], entry["versionCode"]), entry["asset"]
+        documents[(data["versionName"], str(data["versionCode"]))] = (data, PROFILE_DIRECTORY / entry["asset"])
+    return documents
+
+
+DOCUMENTS = load_documents()
+
+
 def load_profiles():
-    data = json.loads((PROFILE_DIRECTORY / "applemusic-1609.json").read_text(encoding="utf-8"))
-    return {(data["versionName"], str(data["versionCode"])): data["verification"]}
+    return {key: data["verification"] for key, (data, _) in DOCUMENTS.items()}
 
 
 PROFILES = load_profiles()
@@ -132,7 +146,7 @@ def main():
     parser.add_argument("package", type=Path, help="APK, XAPK or APKS (all DEX splits are checked)")
     parser.add_argument("--version-name", default=None)
     parser.add_argument("--version-code", default=None)
-    parser.add_argument("--profile", type=Path, default=PROFILE_DIRECTORY / "applemusic-1609.json", help="plugin host profile")
+    parser.add_argument("--profile", type=Path, default=None, help="plugin host profile (default: the shipped profile for the APK version)")
     parser.add_argument("--glass", action="store_true", help="also verify the phone glass seams")
     args = parser.parse_args()
 
@@ -162,6 +176,8 @@ def main():
             raise SystemExit('Split package manifest disagrees with base Android manifest')
         profile = PROFILES.get((version_name or "", str(version_code)))
         document = None
+        if args.profile is None and (actual_name, str(actual_code)) in DOCUMENTS:
+            args.profile = DOCUMENTS[(actual_name, str(actual_code))][1]
         if args.profile:
             document = json.loads(args.profile.read_text(encoding="utf-8"))
             if (document["packageName"], document["versionName"], int(document["versionCode"])) != (

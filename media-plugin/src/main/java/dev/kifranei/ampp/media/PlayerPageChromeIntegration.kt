@@ -79,6 +79,7 @@ internal class PlayerPageChromeIntegration(
             val alpha = if (showHandle) PlayerChromeGeometry.handleAlpha(state.expansion, fullscreen) else 0
             state.foreground.update(inset, alpha)
             val radius = if (systemCorners && portrait) SystemWindowGeometry.topCornerRadius(root) else 0f
+            val bottomRadius = if (radius > 0f) SystemWindowGeometry.bottomCornerRadius(root) else 0f
             state.page?.let { page ->
                 val background = page.background
                 if (radius > 0f && background is GradientDrawable) {
@@ -87,13 +88,15 @@ internal class PlayerPageChromeIntegration(
                         state.pageBackground = background.constantState?.newDrawable(page.resources)?.mutate() as? GradientDrawable
                         state.pageRadius = -1f
                     }
+                    val pageKey = radius + bottomRadius * 1000f
                     state.pageBackground?.let { rounded ->
-                        if (state.pageRadius != radius) {
+                        if (state.pageRadius != pageKey) {
                             val native = state.originalPageBackground as GradientDrawable
                             val corners = native.cornerRadii?.copyOf() ?: FloatArray(8) { native.cornerRadius }
                             for (index in 0..3) corners[index] = radius
+                            for (index in 4..7) corners[index] = bottomRadius
                             rounded.cornerRadii = corners
-                            state.pageRadius = radius
+                            state.pageRadius = pageKey
                         }
                         if (page.background !== rounded) page.background = rounded
                     }
@@ -106,13 +109,15 @@ internal class PlayerPageChromeIntegration(
                 if (radius > 0f) {
                     val currentPath = backgroundPath.get(layer)
                     if (currentPath !== state.path) state.originalPath = currentPath as? Path
-                    if (state.outlineProvider.radius != radius || state.pathWidth != layer.width ||
+                    if (state.outlineProvider.radius != radius || state.bottomRadius != bottomRadius || state.pathWidth != layer.width ||
                         state.pathHeight != layer.height || currentPath !== state.path) {
                         state.outlineProvider.radius = radius
+                        state.bottomRadius = bottomRadius
+                        state.outlineProvider.bottomRadius = bottomRadius
                         state.pathWidth = layer.width; state.pathHeight = layer.height
                         state.path.reset()
                         state.path.addRoundRect(RectF(0f, 0f, layer.width.toFloat(), layer.height.toFloat()),
-                            floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f), Path.Direction.CW)
+                            floatArrayOf(radius, radius, radius, radius, bottomRadius, bottomRadius, bottomRadius, bottomRadius), Path.Direction.CW)
                         backgroundPath.set(layer, state.path)
                         layer.invalidateOutline(); layer.invalidate()
                         state.motion?.invalidateOutline()
@@ -254,6 +259,7 @@ internal class PlayerPageChromeIntegration(
         var originalPageBackground: Drawable? = null
         var pageBackground: GradientDrawable? = null
         var pageRadius = -1f
+        var bottomRadius = -1f
         val background = root.findViewById<View>(id("background_layers"))
         val motion = root.findViewById<View>(id("motion_switcher"))
         val originalForeground = root.foreground
@@ -339,6 +345,7 @@ private class PlayerPageChromeDrawable(
 
 private class PlayerPageOutlineProvider : ViewOutlineProvider() {
     var radius: Float = 0f
+    var bottomRadius: Float = 0f
 
     override fun getOutline(view: View, outline: android.graphics.Outline) {
         if (radius <= 0f || view.width <= 0 || view.height <= 0) {
@@ -347,7 +354,7 @@ private class PlayerPageOutlineProvider : ViewOutlineProvider() {
         }
         if (Build.VERSION.SDK_INT >= 33) {
             val path = Path()
-            val radii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
+            val radii = floatArrayOf(radius, radius, radius, radius, bottomRadius, bottomRadius, bottomRadius, bottomRadius)
             path.addRoundRect(RectF(0f, 0f, view.width.toFloat(), view.height.toFloat()), radii, Path.Direction.CW)
             outline.setPath(path)
         } else {
@@ -361,6 +368,22 @@ private object SystemWindowGeometry {
         val insets = view.rootView.rootWindowInsets ?: view.rootWindowInsets ?: return 0
         return if (Build.VERSION.SDK_INT >= 30) insets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
         else @Suppress("DEPRECATION") insets.systemWindowInsetTop
+    }
+
+    /** Bottom screen corners; falls back to the top radius because most devices are symmetric. */
+    fun bottomCornerRadius(view: View): Float {
+        val insets = view.rootView.rootWindowInsets ?: view.rootWindowInsets
+        if (Build.VERSION.SDK_INT >= 31 && insets != null) {
+            val left = insets.getRoundedCorner(android.view.RoundedCorner.POSITION_BOTTOM_LEFT)
+            val right = insets.getRoundedCorner(android.view.RoundedCorner.POSITION_BOTTOM_RIGHT)
+            if (left != null || right != null) return max(left?.radius ?: 0, right?.radius ?: 0).toFloat()
+        }
+        val resources = view.resources
+        for (name in listOf("rounded_corner_radius_bottom", "rounded_corner_radius")) {
+            val id = resources.getIdentifier(name, "dimen", "android")
+            if (id != 0) return runCatching { resources.getDimension(id).coerceAtLeast(0f) }.getOrDefault(0f)
+        }
+        return topCornerRadius(view)
     }
 
     fun topCornerRadius(view: View): Float {

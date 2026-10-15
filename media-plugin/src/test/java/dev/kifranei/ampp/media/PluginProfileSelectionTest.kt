@@ -1,0 +1,129 @@
+package dev.kifranei.ampp.media
+
+import android.app.Application
+import android.view.View
+import dev.amenhancer.plugin.api.*
+import org.json.JSONObject
+import org.junit.Assert.*
+import org.junit.Test
+import java.io.File
+import java.io.InputStream
+import java.lang.reflect.Executable
+
+class PluginProfileSelectionTest {
+    private val assets = File("src/main/assets")
+    private val sources = File("src/main/java")
+    private val supported = listOf(1606L, 1607L, 1609L, 1611L)
+
+    private fun entries() = ProfileIndex.parse(File(assets, ProfileIndex.ASSET).readText())
+    private fun document(entry: ProfileEntry) = JSONObject(File(assets, entry.asset).readText())
+
+    private class Host(val pkg: String, val name: String, val code: Long, val files: File) : PluginContext {
+        override fun getApplication(): Application = error("Not used")
+        override fun getHostClassLoader(): ClassLoader = javaClass.classLoader!!
+        override fun getHostPackageName() = pkg
+        override fun getHostVersionName() = name
+        override fun getHostVersionCode() = code
+        override fun getDataDirectory(): File = error("Not used")
+        override fun getCacheDirectory(): File = error("Not used")
+        override fun openAsset(path: String): InputStream = File(files, path).inputStream()
+        override fun log(message: String, error: Throwable?) = Unit
+        override fun onClose(action: Runnable) = Unit
+        override fun claimResource(key: String, exclusive: Boolean) = PluginRegistration { }
+        override fun getHooks(): PluginHooks = object : PluginHooks {
+            override fun hook(target: Executable, exclusive: Boolean, callback: PluginHook) = PluginRegistration { }
+            override fun observe(target: Executable, callback: PluginObserver) = PluginRegistration { }
+        }
+    }
+
+    @Test fun `index ships exactly the supported versions and each asset exists`() {
+        assertEquals(supported, entries().map { it.versionCode })
+        entries().forEach { assertTrue(it.asset, File(assets, it.asset).isFile) }
+        // Every applemusic-*.json asset must be indexed, so adding a version cannot be half done.
+        assertEquals(entries().map { it.asset }.toSet(),
+            assets.listFiles()!!.map { it.name }.filter { it.startsWith("applemusic-") && it.endsWith(".json") }.toSet())
+    }
+
+    @Test fun `selection is exact on package version name and code`() {
+        val all = entries()
+        supported.forEach { code ->
+            assertEquals(code, ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", code)?.versionCode)
+        }
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1608))
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1612))
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0", 1611))
+        assertNull(ProfileIndex.select(all, "com.example.music", "7.0.0-beta", 1611))
+    }
+
+    @Test fun `duplicate versions are rejected`() {
+        val text = """{"packageName":"p","profiles":[{"versionName":"a","versionCode":1,"asset":"x"},{"versionName":"a","versionCode":1,"asset":"y"}]}"""
+        assertThrows(IllegalStateException::class.java) { ProfileIndex.parse(text) }
+    }
+
+    @Test fun `load selects the profile for the host build and find matches only it`() {
+        supported.forEach { code ->
+            PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", code, assets))
+            assertEquals(code, PluginProfiles.document.getLong("versionCode"))
+            assertNotNull(PluginProfiles.find("com.apple.android.music", "7.0.0-beta", code))
+            assertNull(PluginProfiles.find("com.apple.android.music", "7.0.0-beta", code + 1))
+        }
+    }
+
+    @Test fun `unsupported host throws with the supported list`() {
+        val error = assertThrows(PluginUnsupportedException::class.java) {
+            PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", 1608, assets))
+        }
+        supported.forEach { assertTrue(error.message, error.message!!.contains("7.0.0-beta / $it")) }
+        assertTrue(error.message, error.message!!.contains("1608"))
+        assertThrows(PluginUnsupportedException::class.java) {
+            PluginProfiles.load(Host("com.example.music", "7.0.0-beta", 1611, assets))
+        }
+    }
+
+    @Test fun `each profile describes its own build and carries every section the code reads`() {
+        val sections = listOf("audioOutput", "lyricon", "audioQualityDialog", "cardSharing", "indexed", "verification",
+            "playerMoreMenu", "playerDialogs", "playerVolume", "playerRecovery", "contentDownloads")
+        entries().forEach { entry ->
+            val doc = document(entry)
+            assertEquals(entry.packageName, doc.getString("packageName"))
+            assertEquals(entry.versionName, doc.getString("versionName"))
+            assertEquals(entry.versionCode, doc.getLong("versionCode"))
+            assertEquals(entry.versionCode.toString(), doc.getJSONObject("verification").getString("version_code"))
+            sections.forEach { assertTrue("${entry.asset} lacks $it", doc.has(it)) }
+        }
+    }
+
+    @Test fun `each profile defines every contract key referenced by the plugin code`() {
+        val text = sources.walkTopDown().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
+        val methods = Regex("""PluginProfiles\.method\("([^"]+)"\)""").findAll(text).map { it.groupValues[1] }.toSet()
+        val fields = Regex("""PluginProfiles\.field\("([^"]+)"\)""").findAll(text).map { it.groupValues[1] }.toSet()
+        assertTrue(methods.size > 20 && fields.size > 20)
+        entries().forEach { entry ->
+            val indexed = document(entry).getJSONObject("indexed")
+            val method = indexed.getJSONObject("methodContracts")
+            val field = indexed.getJSONObject("fieldContracts")
+            methods.forEach { assertTrue("${entry.asset} lacks method contract $it", method.has(it)) }
+            fields.forEach { assertTrue("${entry.asset} lacks field contract $it", field.has(it)) }
+        }
+    }
+
+    @Test fun `more menu click arguments bind by type for both parameter orders`() {
+        val view = Any(); val item = Any()
+        val types = { names: List<Class<*>> -> names.toTypedArray() }
+        // 1606/1607/1609: (int, View, item)
+        assertArrayEquals(arrayOf<Any?>(3, view, item), bindMoreMenuClickArguments(
+            types(listOf(Integer.TYPE, View::class.java, Any::class.java)), 3, view, item))
+        // 1611: (item, View, int)
+        assertArrayEquals(arrayOf<Any?>(item, view, 3), bindMoreMenuClickArguments(
+            types(listOf(Any::class.java, View::class.java, Integer.TYPE)), 3, view, item))
+    }
+
+    @Test fun `profiles record the click parameter order the binder handles`() {
+        entries().forEach { entry ->
+            val params = document(entry).getJSONObject("indexed").getJSONObject("methodContracts")
+                .getJSONObject("more-action-click").getJSONArray("parameters")
+            val list = (0 until params.length()).map(params::getString)
+            assertEquals(entry.asset, setOf("int", "android.view.View", "com.apple.android.music.model.CollectionItemView"), list.toSet())
+        }
+    }
+}
