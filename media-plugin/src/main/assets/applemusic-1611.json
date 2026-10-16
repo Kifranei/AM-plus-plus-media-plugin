@@ -42,7 +42,7 @@
     "progressClass": "com.apple.android.music.common.actionsheet.Q",
     "progressOptionField": "d",
     "progressItemField": "c",
-    "observerClass": "com.apple.android.music.commerce.activities.l",
+    "observerClass": "com.apple.android.music.commerce.activities.m",
     "observerProgressField": "b",
     "resultClass": "com.apple.android.mediaservices.utils.b",
     "resultValueMethod": "a",
@@ -1602,7 +1602,7 @@
       "Lcom/apple/android/music/common/actionsheet/ShareSheetViewModel;": [
         "setShareItemDetails(Lcom/apple/android/music/model/CollectionItemView;Lcom/apple/android/music/model/CollectionItemView;[Ljava/lang/String;Ljava/lang/String;)V"
       ],
-      "Lcom/apple/android/music/commerce/activities/l;": [
+      "Lcom/apple/android/music/commerce/activities/m;": [
         "onChanged(Ljava/lang/Object;)V"
       ],
       "Lcom/apple/android/mediaservices/utils/b;": [
@@ -1814,7 +1814,7 @@
         "c": "Lcom/apple/android/music/model/CollectionItemView;",
         "d": "Lcom/apple/android/music/model/CollectionItemView;"
       },
-      "Lcom/apple/android/music/commerce/activities/l;": {
+      "Lcom/apple/android/music/commerce/activities/m;": {
         "b": "Ljava/lang/Object;"
       }
     }

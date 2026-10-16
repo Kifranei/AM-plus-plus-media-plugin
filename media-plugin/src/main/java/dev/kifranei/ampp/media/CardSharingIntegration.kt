@@ -24,6 +24,14 @@ internal class CardSharingIntegration(
         val names = PluginProfiles.find(build.packageName, build.versionName, build.versionCode)
             ?.document?.optJSONObject("cardSharing")
             ?: return TargetCapabilityInstall.Unsupported("No verified card-sharing contract for ${build.displayName}")
+        // JSON remains primary; DexKit repairs observerClass only when structure validation fails.
+        val resolved = when (val outcome = CardSharingDexResolver.resolve(application, loader, names)) {
+            is CardSharingDexResolver.Outcome.Unsupported -> return TargetCapabilityInstall.Unsupported(outcome.message)
+            is CardSharingDexResolver.Outcome.Ok -> outcome.symbols
+        }
+        names.put("observerClass", resolved.observerClass)
+        names.put("observerProgressField", resolved.observerProgressField)
+        MediaRuntime.log("card_sharing: using observer=${resolved.observerClass} field=${resolved.observerProgressField} via ${resolved.source}")
         val fragment = loader.loadClass(names.getString("fragmentClass"))
         val source = loader.loadClass(names.getString("sourceClass"))
         val option = loader.loadClass(names.getString("optionClass"))

@@ -9,4 +9,6 @@
 - 蓝牙输出设备名称处理参考 Kifranei 的 Halcyon 实现，包括设备名前缀清理和匹配配对设备名称。
 - 扬声器和 AirPods 图片来自 [Apple Music 使用手册](https://support.apple.com/zh-cn/guide/music/mus131245dbe/mac)，版权归 Apple；来源 URL 与下载日期见 `media-plugin/src/main/assets/licenses/AppleMusicOutputIcons.txt`。通用耳机矢量素材由 Kifranei 从 Halcyon 提供。
 
+- 卡片分享观察者自修复使用 [DexKit](https://github.com/LuckyPray/DexKit) `org.luckypray:dexkit:2.2.0`（Apache-2.0）。Java API 打入 `code.jar`；原生 `libdexkit.so` 不进入插件 ZIP，运行时从已安装的 AM++ 模块加载（与宿主共用）。
+
 插件打包任务将项目 GPL-3.0 和上述第三方许可证一并放入 ZIP 的 `assets/licenses/`。

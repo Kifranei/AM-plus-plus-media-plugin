@@ -74,6 +74,8 @@ def dex_classes(data):
         fields = {}
         method_access = {}
         field_access = {}
+        new_instances = set()
+        check_casts = set()
         if offset:
             counts = []
             for _ in range(4):
@@ -93,7 +95,18 @@ def dex_classes(data):
                     delta, offset = _uleb(data, offset)
                     index += delta
                     flags, offset = _uleb(data, offset)
-                    _, offset = _uleb(data, offset)
+                    code_off, offset = _uleb(data, offset)
+                    if code_off:
+                        # Behavioural evidence: which types this class instantiates / casts to.
+                        size = u32(code_off + 12)
+                        for unit_at in range(code_off + 16, code_off + 16 + size * 2 - 3, 2):
+                            unit = u16(unit_at)
+                            operand = u16(unit_at + 2)
+                            if operand < len(types):
+                                if unit & 255 == 0x22:
+                                    new_instances.add(types[operand])
+                                elif unit & 255 == 0x1F:
+                                    check_casts.add(types[operand])
                     methods.add(method_defs[index])
                     method_access[method_defs[index]] = flags
         classes[class_name] = {
@@ -102,6 +115,8 @@ def dex_classes(data):
             "fields": fields,
             "method_access": method_access,
             "field_access": field_access,
+            "new_instances": new_instances,
+            "check_casts": check_casts,
         }
     return classes
 
@@ -220,6 +235,39 @@ def main():
             candidate = PROFILE_DIRECTORY / f"{actual_name}-{actual_code}.json"
             if candidate.is_file():
                 document = json.loads(candidate.read_text(encoding="utf-8"))
+        if document and document.get('cardSharing'):
+            # Symbol existence is not enough (1611 kept a stale 1609 observer `...activities.l` that
+            # exists but is an unrelated lambda). The share-progress fragment must itself instantiate
+            # the observer class, and the observer must cast its captured owner to that progress
+            # class and its LiveData value to the result wrapper.
+            card = document['cardSharing']
+            def dotted(name): return 'L' + name.replace('.', '/') + ';'
+            progress, observer, result = dotted(card['progressClass']), dotted(card['observerClass']), dotted(card['resultClass'])
+            checks += 3
+            if observer not in classes.get(progress, {}).get('new_instances', set()):
+                failures.append(f'cardSharing observer {observer} is not instantiated by progress class {progress}')
+            typed_owner = progress in classes.get(observer, {}).get('fields', {}).values()  # 1606: typed field, no cast
+            if progress not in classes.get(observer, {}).get('check_casts', set()) and not typed_owner:
+                failures.append(f'cardSharing observer {observer} never casts its owner to {progress}')
+            if result not in classes.get(observer, {}).get('check_casts', set()):
+                failures.append(f'cardSharing observer {observer} never casts its value to {result}')
+            # Uniqueness: the same structural anchors the DexKit pilot uses must point at exactly
+            # this observer. Multiple matches would mean a silent wrong-class hook risk.
+            structural = []
+            for ni in classes.get(progress, {}).get('new_instances', set()):
+                info = classes.get(ni, {})
+                casts = info.get('check_casts', set())
+                field_types = set(info.get('fields', {}).values())
+                owns = progress in casts or progress in field_types
+                has_on_changed = any(sig.startswith('onChanged(') for sig in info.get('methods', set()))
+                if result in casts and owns and has_on_changed:
+                    structural.append(ni)
+            checks += 1
+            if structural != [observer]:
+                failures.append(
+                    f'cardSharing structural observer set {structural} != profile {[observer]}'
+                )
+
         if document:
             def descriptor(name):
                 primitive = {'void':'V','int':'I','long':'J','float':'F','boolean':'Z',

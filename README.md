@@ -26,11 +26,15 @@
 3. 在 AM++ 设置的「插件」中导入 ZIP，开启「下次启动启用」，重开 Apple Music。
 4. 打开「AM 媒体增强」插件设置，开启需要的功能，重开 Apple Music 后生效。
 
-插件和八个功能开关默认关闭。设置保存在插件独立目录，更新保留配置；修改设置、启停、更新和删除均在重开 Apple Music 后生效。
+插件默认关闭；各功能开关默认关闭。设置保存在插件独立目录，更新保留配置；修改设置、启停、更新和删除均在重开 Apple Music 后生效。
 
 「解除分享白名单限制」同时控制歌曲卡片与歌词卡片。旧版歌词分享开关自动迁移，明确保存的新开关值优先；新增图片入口位于原生可分享应用横栏，原有拷贝链接和更多选项保留。
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
+
+v1.3.1 / 13 修复 Apple Music 1611 的歌曲／歌词卡片图片分享与保存：1611 把分享进度页的 LiveData 观察者由 `commerce.activities.l` 改为 `commerce.activities.m`，旧 profile 沿用了 1609 的类名，导致 hook 未命中、原生流程接管（与商店地区无关）。1606/1607/1609 不变。同时加强 APK 校验：除符号存在外，还检查分享进度页确实实例化该观察者类，观察者持有／转换进度页与结果封装类型，且结构候选唯一（1606 的类型化字段与 1607+ 的 check-cast 均接受）。新增 DexKit 辅助的后台结构检查（试点，仅卡片分享）：JSON profile 优先；profile 观察者通过反射校验即立即安装全部 hook（含分享按钮），DexKit 仅在后台核对，确认「profile 观察者并非由进度页实例化」且候选唯一时才缓存（按 Apple Music `versionCode`+`lastUpdateTime`，SharedPreferences）并于下次启动生效；DexKit 或原生库不可用只记录 `card_sharing:` 日志，不影响按钮。仅当 profile 观察者本身不可用且 DexKit 无法唯一解析时才不安装。插件包只含 DexKit Java API，`libdexkit.so` 从 AM++ 模块加载。
+
+v1.3.1 / 13 fixes image sharing/saving of song and lyrics cards on Apple Music 1611: 1611 renamed the share-progress LiveData observer from `commerce.activities.l` to `commerce.activities.m`, but the profile kept the 1609 name, so the hook never matched. 1606/1607/1609 are unchanged. The APK verifier is stricter: besides symbol existence it checks that the progress fragment instantiates the observer, the observer holds/casts the progress and result types, and the structural candidate is unique. Adds a DexKit-assisted background structure check (pilot, card sharing only): JSON profile first; if the profile observer passes reflection checks, all hooks (including the share buttons) install immediately, and DexKit only verifies in the background — a confirmed unique mismatch is cached (Apple Music `versionCode`+`lastUpdateTime`, SharedPreferences) and applied on the next launch. DexKit/native problems only log `card_sharing:` and never affect the buttons. Hooks are skipped only if the profile observer itself is unusable and DexKit cannot resolve a unique one. The plugin ZIP ships the DexKit Java API only; `libdexkit.so` loads from the AM++ module.
 
 v1.3.0 / 12 同时支持 Apple Music 7.0.0-beta / 1606、1607、1609、1611：`assets/profiles.json` 列出全部 profile，插件启动时按宿主的包名 + 版本名 + 版本号精确选择 `applemusic-<版本号>.json`（不做范围或最近版本回退）；新增一个宿主版本只需增加一个 profile JSON 及索引条目，并运行 `scripts/verify-all-profiles.py`。音质弹窗的玻璃现与「更多」菜单一样持续实时取样背景。1611 的宿主 profile（`applemusic-1611.json`，类名、方法名和字段名按 1609 → 1611 重新映射；「更多」菜单点击方法的参数顺序由 `(int, View, item)` 变为 `(item, View, int)`，插件按参数类型传参）。以下为 1.2.0 / 11（1609）适配说明：重新适配 Apple Music 7.0.0-beta / 1609（宿主 profile `applemusic-1611.json`）；移除了平板播放界面的全部修改（平板双栏/紧凑控件/歌词收起等），并移除对封面尺寸设置方法 `fragment.l.E1(boolean, Size)`（1609 中为 `fragment.m`）的 hook，以消除与其他注册的冲突。同时在欧加真（ColorOS / realme UI / OxygenOS）系统上自动禁用播放页音量条：按 `Build.MANUFACTURER`/`Build.BRAND` 及系统属性识别，即使已保存为开启也不安装，设置开关显示为关闭且不可切换。此版本还新增「艺术家特色字标」下载：读取原生 `editorialArtwork["musicContentColorLogoTrimmed"]`（1609 `EditorialImageType.ARTIST_LOGO`），按原始尺寸请求透明 PNG 并保存到 `Download/AM++`，仅在艺术家有字标时显示；CI 改为从 `media-plugin/plugin.json` 读取版本号校验 ZIP。
 
@@ -58,7 +62,7 @@ v1.3.0 / 12 同时支持 Apple Music 7.0.0-beta / 1606、1607、1609、1611：`a
 ```powershell
 .\gradlew.bat :media-plugin:testDebugUnitTest :media-plugin:lintDebug :media-plugin:pluginZip
 python -B scripts/verify-sdk.py
-python -B scripts/verify-media-plugin.py media-plugin/build/dist/ampp-media-integrations-1.3.0.zip
+python -B scripts/verify-media-plugin.py media-plugin/build/dist/ampp-media-integrations-1.3.1.zip
 ```
 
 Linux/macOS 使用 `./gradlew`。产物位于 `media-plugin/build/dist/`。

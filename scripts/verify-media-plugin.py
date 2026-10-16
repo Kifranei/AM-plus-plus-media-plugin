@@ -29,8 +29,10 @@ def main():
         manifest = json.loads(archive.read("plugin.json"))
         assert manifest["id"] == "dev.kifranei.ampp.media"
         source = json.loads((ROOT / "media-plugin/plugin.json").read_text(encoding="utf-8"))
-        assert manifest["versionName"] == source["versionName"] == "1.3.0"
-        assert manifest["versionCode"] == source["versionCode"] == 12
+        assert manifest["versionName"] == source["versionName"]
+        assert manifest["versionCode"] == source["versionCode"]
+        assert isinstance(manifest["versionName"], str) and manifest["versionName"]
+        assert isinstance(manifest["versionCode"], int) and manifest["versionCode"] > 0
         assert args.archive.name == f"ampp-media-integrations-{manifest['versionName']}.zip", args.archive.name
         assert manifest["formatVersion"] == manifest["apiVersion"] == 1
         assert manifest["minAndroidApi"] == 28
@@ -67,7 +69,7 @@ def main():
         forbidden = ("Ldev/amenhancer/", "Lcom/apple/android/music/", "Lio/github/libxposed/",
                      "Lcom/kyant/backdrop/", "Landroidx/compose/")
         assert not any(name.startswith(forbidden) for name in definitions), "Private module, host or SDK code bundled"
-        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "ProfileIndex", "ProfileEntry")
+        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "CardSharingDexResolver", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "ProfileIndex", "ProfileEntry")
         assert all("Ldev/kifranei/ampp/media/" + name + ";" in definitions for name in required)
         for name in ("BluetoothOutputName", "AudioOutputDeviceLabel", "AudioOutputLabelPlacement", "AudioOutputButtonVisibility", "IosDeviceOutputDrawable", "OutputDeviceIcon", "BluetoothOutputState",
                      "SystemAudioOutput", "AudioOutputRouting", "AudioOutputRoute", "AudioOutputKind", "AudioOutputState"):

@@ -45,6 +45,9 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.4.10")
     implementation("io.github.proify.lyricon:provider:0.1.70")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // DexKit Java API is dex'd into code.jar. Native libdexkit.so is NOT packaged in the
+    // plugin ZIP (SDK allows only plugin.json/code.jar/assets/); runtime loads it from AM++.
+    implementation("org.luckypray:dexkit:2.2.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation(hostSdk)
