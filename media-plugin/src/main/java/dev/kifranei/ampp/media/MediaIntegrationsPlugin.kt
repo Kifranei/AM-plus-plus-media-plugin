@@ -26,6 +26,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         PluginProfiles.load(context)
         store = MediaSettingsStore(context.dataDirectory)
         configured = store.read()
+        PopupGlassStyle.current = configured.popupGlassStyle
         context.onClose { writer.shutdown() }
         // Resolve contracts before any capability registers; all host knowledge stays in this ZIP.
         // A profile without these contracts only loses Lyricon (its install reports Unsupported); never the whole plugin.
@@ -162,6 +163,28 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         option(text.iosControls, draft.iosControls, text.iosControlsDescription) { state, enabled -> state.copy(iosControls = enabled) }
         option(text.sharing, draft.sharing, text.sharingDescription) { state, enabled -> state.copy(sharing = enabled) }
         option(text.playerGlass, draft.playerGlass, text.playerGlassDescription) { state, enabled -> state.copy(playerGlass = enabled) }
+        layout.addView(TextView(context).apply { this.text = text.popupGlassStyle; textSize = 16f; setPadding(0, dp(8), 0, 0) })
+        val styles = PopupGlassStyle.values()
+        val styleLabels = listOf(text.popupStyleBottomBar, text.popupStyleMoreMenu, text.popupStyleNoFrost)
+        val styleSpinner = Spinner(context, Spinner.MODE_DROPDOWN).apply {
+            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, styleLabels)
+            setSelection(styles.indexOf(draft.popupGlassStyle).coerceAtLeast(0), false)
+            minimumHeight = dp(48)
+            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    val chosen = styles.getOrNull(position) ?: return
+                    if (chosen == draft.popupGlassStyle) return
+                    draft = draft.copy(popupGlassStyle = chosen)
+                    persist()
+                }
+                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+            }
+        }
+        layout.addView(styleSpinner)
+        layout.addView(TextView(context).apply {
+            this.text = text.popupGlassStyleDescription; textSize = 13f
+            setTextColor(textColors.withAlpha(180)); setPadding(0, 0, dp(40), dp(12))
+        })
         option(text.playerHandle, draft.playerHandle) { state, enabled -> state.copy(playerHandle = enabled) }
         option(text.systemCorners, draft.systemCorners) { state, enabled -> state.copy(systemCorners = enabled) }
         val oplus = OplusRomDetector.current
@@ -178,6 +201,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
             override fun close() {
                 if (!closed.compareAndSet(false, true)) return
                 switches.forEach { it.setOnCheckedChangeListener(null) }
+                styleSpinner.onItemSelectedListener = null
                 saveButton.setOnClickListener(null)
                 main.removeCallbacksAndMessages(null)
             }

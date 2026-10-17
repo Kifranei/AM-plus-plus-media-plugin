@@ -17,6 +17,10 @@ internal sealed class ContentExportAsset(val kind: ContentExportKind, open val t
     data class ArtistMotionArtwork(override val title: String, val sources: List<MotionArtworkSource>) :
         ContentExportAsset(ContentExportKind.ARTIST_MOTION_ARTWORK, title)
 
+    /** The plain album cover (static JPEG at native maximum size); separate from the animated cover. */
+    data class AlbumArtwork(override val title: String, val artwork: ArtworkImageSource?) :
+        ContentExportAsset(ContentExportKind.ALBUM_ARTWORK, title)
+
     data class AlbumMotionArtwork(override val title: String, val sources: List<MotionArtworkSource>) :
         ContentExportAsset(ContentExportKind.ALBUM_MOTION_ARTWORK, title)
 
@@ -36,6 +40,7 @@ internal sealed class ContentExportAsset(val kind: ContentExportKind, open val t
         is ArtistArtwork -> ContentExportReason.NO_ARTIST_ARTWORK.takeIf { artwork?.url.isNullOrBlank() }
         is ArtistWordmark -> ContentExportReason.NO_ARTIST_WORDMARK.takeIf { artwork?.url.isNullOrBlank() }
         is ArtistMotionArtwork -> ContentExportReason.NO_ARTIST_MOTION_ARTWORK.takeIf { sources.none { it.url.isNotBlank() } }
+        is AlbumArtwork -> ContentExportReason.NO_ALBUM_ARTWORK.takeIf { artwork?.url.isNullOrBlank() }
         is AlbumMotionArtwork -> ContentExportReason.NO_MOTION_ARTWORK.takeIf { sources.none { it.url.isNotBlank() } }
         is TtmlLyrics -> ContentExportReason.NO_TTML.takeIf { rawTtml.isNullOrBlank() }
         is ArtistBiography -> ContentExportReason.NO_BIOGRAPHY.takeIf { text?.content.isNullOrBlank() }
@@ -47,6 +52,7 @@ internal enum class ContentExportKind(val filenameTag: String, private val zh: S
     ARTIST_ARTWORK("artist-artwork", "艺术家封面（静态 JPEG）", "Artist artwork (still JPEG)"),
     ARTIST_WORDMARK("artist-wordmark", "艺术家字标（透明 PNG）", "Artist wordmark (transparent PNG)"),
     ARTIST_MOTION_ARTWORK("artist-motion", "艺术家动态封面（无声 MP4）", "Artist motion artwork (silent MP4)"),
+    ALBUM_ARTWORK("album-artwork", "专辑封面（静态 JPEG，原始最大尺寸）", "Album cover (still JPEG, full resolution)"),
     ALBUM_MOTION_ARTWORK("album-motion", "专辑动态封面（无声 MP4）", "Album motion artwork (silent MP4)"),
     TTML_LYRICS("lyrics", "原始 TTML 歌词", "Original TTML lyrics"),
     ARTIST_BIOGRAPHY("artist-biography", "艺术家传记（文本）", "Artist biography (text)"),
@@ -161,6 +167,7 @@ internal enum class ContentExportReason(private val zh: String, private val en: 
     NO_ARTIST_ARTWORK("此艺术家没有可用的封面", "No artist artwork is available"),
     NO_ARTIST_WORDMARK("此艺术家没有特色字标", "This artist has no wordmark"),
     NO_ARTIST_MOTION_ARTWORK("此艺术家没有可用的动态封面", "No motion artwork is available for this artist"),
+    NO_ALBUM_ARTWORK("此专辑没有可用的静态封面", "No static cover is available for this album"),
     NO_MOTION_ARTWORK("此专辑没有可用的动态封面", "No motion artwork is available for this album"),
     NO_TTML("尚未捕获此歌曲的原始 TTML 歌词", "Original TTML lyrics have not been captured for this song"),
     NO_BIOGRAPHY("此艺术家没有可用的传记", "No artist biography is available"),

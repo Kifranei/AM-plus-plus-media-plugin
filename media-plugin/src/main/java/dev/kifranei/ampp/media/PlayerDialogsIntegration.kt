@@ -5,6 +5,7 @@ import android.app.Dialog
 import android.content.Context
 import android.content.ContextWrapper
 import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.content.res.ColorStateList
@@ -16,6 +17,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.view.Gravity
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.view.WindowInsets
@@ -151,14 +153,23 @@ internal class PlayerDialogsIntegration(private val build: TargetBuild, private 
         private val card = FrameLayout(activity).apply {
             isClickable = true
             background = GradientDrawable().apply { setColor(Color.TRANSPARENT); cornerRadius = dp(32).toFloat() }
+            // Explicit round-rect outline (same idea as the More menu card) so glass / native list
+            // children cannot paint square corners outside the 32dp popup radius.
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, dp(32).toFloat())
+                }
+            }
             clipToOutline = true
+            clipChildren = true
         }
         private val glass = PluginGlassHostView(MediaRuntime.glassContext(activity), bleedDp = 0)
-        private val backdrop = DialogWindowBackdrop(activity, glass)
+        // Live PixelCopy like More menu / audio-quality: blur tracks the player behind the popup.
+        private val backdrop = DialogWindowBackdrop(activity, glass, live = true)
         private var mounted = false
         private var tree: ViewTreeObserver? = null
         private val position = IntArray(2)
-        private val preDraw = ViewTreeObserver.OnPreDrawListener { layout(); true }
+        private val preDraw = ViewTreeObserver.OnPreDrawListener { layout(); backdrop.refreshPosition(); true }
         val closed: Boolean get() = cleanup.closed
         private val attached = object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(view: View) { tree = root.viewTreeObserver.also { it.addOnPreDrawListener(preDraw) } }

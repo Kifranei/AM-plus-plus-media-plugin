@@ -83,4 +83,16 @@ class MediaSettingsStoreTest {
         store.write(store.read().copy(contentDownloads = false))
         assertEquals(original, store.read())
     }
+    @Test fun `popup glass style defaults to bottom bar, round-trips and tolerates unknown values`() {
+        assertEquals(PopupGlassStyle.BOTTOM_BAR, MediaSettings().popupGlassStyle)
+        assertEquals(PopupGlassStyle.BOTTOM_BAR, MediaSettings.decode("{}").popupGlassStyle)
+        assertEquals(PopupGlassStyle.BOTTOM_BAR, MediaSettings.decode("{\"popup_glass_style\":\"nope\"}").popupGlassStyle)
+        assertEquals(PopupGlassStyle.BOTTOM_BAR, MediaSettings.decode("{\"popup_glass_style\":3}").popupGlassStyle)
+        PopupGlassStyle.values().forEach { style ->
+            val store = MediaSettingsStore(temporary.newFolder())
+            store.write(MediaSettings(playerGlass = true, popupGlassStyle = style))
+            assertEquals(style, store.read().popupGlassStyle)
+            assertTrue(store.read().playerGlass)
+        }
+    }
 }

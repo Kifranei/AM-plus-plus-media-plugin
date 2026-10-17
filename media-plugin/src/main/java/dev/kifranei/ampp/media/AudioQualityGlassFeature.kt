@@ -4,9 +4,11 @@ import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
 import android.os.Build
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
@@ -31,7 +33,16 @@ internal class AudioQualityGlassFeature {
         val height = minOf(dp(if (surface.source.isBlank()) 285 else 355), activity.window.decorView.height - dp(96))
         if (width <= 0 || height <= 0) return false
         val frame = FrameLayout(moduleContext).apply { setPadding(dp(10), dp(10), dp(10), dp(10)) }
-        val glass = PluginGlassHostView(moduleContext, bleedDp = 0)
+        val glass = PluginGlassHostView(moduleContext, bleedDp = 0).apply {
+            // Match the Compose RoundedCornerShape(32.dp) so host highlight/shadow cannot square the corners.
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    val r = 32f * density
+                    outline.setRoundRect(0, 0, view.width, view.height, r)
+                }
+            }
+            clipToOutline = true
+        }
         frame.addView(glass, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         // Same live PixelCopy path as the more menu so animated player chrome keeps sampling.
         val backdrop = DialogWindowBackdrop(activity, glass, live = true)

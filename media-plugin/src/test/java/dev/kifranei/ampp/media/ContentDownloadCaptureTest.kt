@@ -101,7 +101,7 @@ class ContentDownloadCaptureTest {
         capture.recordPage(artist); capture.recordPage(album)
         assertEquals(artist, capture.page(artist.kind, "100")); assertEquals(album, capture.page(album.kind, "100"))
         assertEquals(listOf(ContentExportKind.ARTIST_ARTWORK, ContentExportKind.ARTIST_MOTION_ARTWORK, ContentExportKind.ARTIST_BIOGRAPHY), artist.assets().map { it.kind })
-        assertEquals(listOf(ContentExportKind.ALBUM_MOTION_ARTWORK, ContentExportKind.ALBUM_EDITORIAL), album.assets().map { it.kind })
+        assertEquals(listOf(ContentExportKind.ALBUM_ARTWORK, ContentExportKind.ALBUM_MOTION_ARTWORK, ContentExportKind.ALBUM_EDITORIAL), album.assets().map { it.kind })
         capture.recordPage(ContentDownloadPage(ContentDownloadPageKind.ARTIST, "200", "other"))
         assertNull(capture.page(ContentDownloadPageKind.ARTIST, "100"))
     }
@@ -138,7 +138,7 @@ class ContentDownloadCaptureTest {
 
     @Test fun `already requested JSON yields only editorial motion URLs and full album notes`() {
         val json = JSONObject("""{"token":"NEVER_CAPTURE","data":[{"id":"200","type":"albums","attributes":{
-          "name":"Album","previews":[{"url":"https://cdn.example/music.m4a"}],"editorialVideo":{"motionDetailSquare":{
+          "name":"Album","artwork":{"url":"https://cdn.example/{w}x{h}bb.{f}","width":3000,"height":3000},"previews":[{"url":"https://cdn.example/music.m4a"}],"editorialVideo":{"motionDetailSquare":{
           "video":"https://cdn.example/cover.m3u8","videoFile":[{"assetUrl":"https://cdn.example/cover.mp4","width":1920,"height":1080}]}},
           "editorialNotes":{"standard":"<p>Full introduction.</p>","short":"short snippet"},"authorization":"NEVER_CAPTURE"}}]}""")
         val page = checkNotNull(ContentDownloadPageDecoder().fromJson(json))
@@ -148,6 +148,7 @@ class ContentDownloadCaptureTest {
         assertFalse(page.toString().contains("NEVER_CAPTURE"))
         assertTrue(page.motion.none { it.url.contains("music.m4a") })
         assertTrue(page.assets().all { it.unavailableReason() == null })
+        assertEquals("https://cdn.example/3000x3000bb.jpg", checkNotNull((page.assets().first() as ContentExportAsset.AlbumArtwork).artwork).jpegUrl())
     }
 
     @Test fun `missing or failing optional native getters remain honestly unavailable`() {

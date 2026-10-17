@@ -30,7 +30,7 @@ internal data class ContentDownloadPage(
         ContentDownloadPageKind.ARTIST -> listOfNotNull(ContentExportAsset.ArtistArtwork(title, artwork),
             wordmark?.let { ContentExportAsset.ArtistWordmark(title, it) },
             ContentExportAsset.ArtistMotionArtwork(title, motion), ContentExportAsset.ArtistBiography(title, biography))
-        ContentDownloadPageKind.ALBUM -> listOf(ContentExportAsset.AlbumMotionArtwork(title, motion), ContentExportAsset.AlbumEditorial(title, editorial))
+        ContentDownloadPageKind.ALBUM -> listOf(ContentExportAsset.AlbumArtwork(title, artwork), ContentExportAsset.AlbumMotionArtwork(title, motion), ContentExportAsset.AlbumEditorial(title, editorial))
     }
 }
 

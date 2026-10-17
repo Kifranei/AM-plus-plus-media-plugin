@@ -114,9 +114,10 @@ internal class ContentExportStorage internal constructor(
             if (!directory.isDirectory && !directory.mkdirs()) exportFailure(ContentExportReason.STORAGE_ERROR)
             staged = File.createTempFile(".ampp-export-", ".part", directory)
             val format = when (asset) {
-                is ContentExportAsset.ArtistArtwork -> {
+                is ContentExportAsset.ArtistArtwork, is ContentExportAsset.AlbumArtwork -> {
                     job.phase(ContentExportPhase.DOWNLOADING)
-                    val source = checkNotNull(asset.artwork).jpegUrl(options.useOriginalArtworkSize)
+                    val art = (asset as? ContentExportAsset.ArtistArtwork)?.artwork ?: (asset as ContentExportAsset.AlbumArtwork).artwork
+                    val source = checkNotNull(art).jpegUrl(options.useOriginalArtworkSize)
                     val budget = ContentExportByteBudget(options.maxBytes, job.control)
                     withExportNetwork { network.open(source, job.control) }.use { response ->
                             FileOutputStream(staged).use { output ->

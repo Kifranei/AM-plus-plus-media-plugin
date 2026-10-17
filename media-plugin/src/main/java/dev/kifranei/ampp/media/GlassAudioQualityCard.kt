@@ -2,14 +2,12 @@ package dev.kifranei.ampp.media
 
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.TextStyle
@@ -19,23 +17,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
-import com.kyant.backdrop.drawBackdrop
-import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
-import com.kyant.backdrop.effects.vibrancy
+
 
 @Composable
 fun GlassAudioQualityCard(backdrop: Backdrop, badge: Drawable, title: String, encoding: String,
     source: String, settingsLabel: String, doneLabel: String, openSettings: () -> Unit, done: () -> Unit) {
     val shape = RoundedCornerShape(32.dp)
-    val accent = Color(0xFF70B8FF)
-    Column(Modifier.fillMaxSize().drawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
-        vibrancy()
-        blur(20.dp.toPx())
-        lens(20.dp.toPx(), 32.dp.toPx())
-    }, onDrawSurface = { drawRect(Color(0xFF101828).copy(alpha = .35f)) })
-        .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = .65f), Color.White.copy(alpha = .1f),
-            accent.copy(alpha = .35f))), shape)
+    Column(Modifier.fillMaxSize().popupGlass(backdrop, shape)
         .padding(22.dp)) {
         Canvas(Modifier.size(width = 96.dp, height = 80.dp).align(Alignment.CenterHorizontally)) {
             val canvas = drawContext.canvas.nativeCanvas

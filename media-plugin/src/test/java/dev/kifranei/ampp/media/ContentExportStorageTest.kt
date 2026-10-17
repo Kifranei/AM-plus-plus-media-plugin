@@ -59,6 +59,20 @@ class ContentExportStorageTest {
         }
     }
 
+    @Test fun `album static cover resolves to native maximum size JPEG and publishes through storage`() {
+        val folder = temporary.newFolder()
+        val resolved = "https://cdn.example/3000x3000bb.jpg?signature=private"
+        val network = ContentExportTestNetwork(mapOf(resolved to jpeg))
+        ContentExportStorage(AtomicFileContentExportDestination(folder), network = network).use { storage ->
+            val run = exportAndWait(storage, ContentExportAsset.AlbumArtwork("Album",
+                ArtworkImageSource("https://cdn.example/{w}x{h}{c}.{f}?signature=private", 3000, 3000)))
+            assertEquals(ContentExportPhase.SUCCEEDED, run.status.phase)
+            assertEquals("image/jpeg", run.status.file?.mimeType)
+            assertEquals(listOf(resolved), network.requests)
+            assertArrayEquals(jpeg, File(URI(checkNotNull(run.status.file).uri)).readBytes())
+        }
+    }
+
     @Test fun `artist HLS parsing failures forward only the safe structure summary to the registered listener`() {
         val folder = temporary.newFolder()
         val address = "https://cdn.example/artist.m3u8?token=private"
@@ -106,7 +120,7 @@ class ContentExportStorageTest {
     @Test fun `all missing assets fail honestly without empty files or network requests`() {
         val folder = temporary.newFolder()
         val network = ContentExportTestNetwork(emptyMap())
-        val assets = listOf(ContentExportAsset.ArtistArtwork("artist", null), ContentExportAsset.AlbumMotionArtwork("album", emptyList()),
+        val assets = listOf(ContentExportAsset.ArtistArtwork("artist", null), ContentExportAsset.AlbumMotionArtwork("album", emptyList()), ContentExportAsset.AlbumArtwork("album", null),
             ContentExportAsset.ArtistMotionArtwork("artist", emptyList()),
             ContentExportAsset.TtmlLyrics("song", null), ContentExportAsset.ArtistBiography("artist", null), ContentExportAsset.AlbumEditorial("album", null))
         ContentExportStorage(AtomicFileContentExportDestination(folder), network = network).use { storage ->

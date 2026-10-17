@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
-import com.kyant.backdrop.drawBackdrop
+
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -20,7 +20,7 @@ import com.kyant.backdrop.effects.vibrancy
 fun GlassPlayerMoreMenu(backdrop: Backdrop, dark: Boolean) {
     val shape = RoundedCornerShape(28.dp)
     val surface = if (dark) Color(0xFF3A3A3C) else Color(0xFFF2F2F7)
-    Box(Modifier.fillMaxSize().drawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
+    Box(Modifier.fillMaxSize().compatDrawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
         vibrancy()
         blur(20.dp.toPx())
         lens(10.dp.toPx(), 16.dp.toPx())

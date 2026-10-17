@@ -6,6 +6,17 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.nio.file.AtomicMoveNotSupportedException
 
+/** Material of the liquid-glass popups (sleep timer, delete confirmation, audio quality); the More menu keeps its own look. */
+internal enum class PopupGlassStyle(val key: String) {
+    BOTTOM_BAR("bottom_bar"), MORE_MENU("more_menu"), NO_FROST("no_frost");
+    companion object {
+        val default = BOTTOM_BAR
+        /** Applied once when the plugin loads (settings take effect after reopening Apple Music). */
+        @Volatile var current: PopupGlassStyle = default
+        fun fromKey(key: String?) = values().firstOrNull { it.key == key } ?: default
+    }
+}
+
 internal data class MediaSettings(
     val lyricon: Boolean = false,
     val iosControls: Boolean = false,
@@ -15,6 +26,7 @@ internal data class MediaSettings(
     val systemCorners: Boolean = false,
     val volumeBar: Boolean = false,
     val contentDownloads: Boolean = false,
+    val popupGlassStyle: PopupGlassStyle = PopupGlassStyle.default,
 ) {
     fun encode() = JSONObject().apply {
         put("lyricon", lyricon); put("ios_controls", iosControls)
@@ -22,6 +34,7 @@ internal data class MediaSettings(
         put("player_handle", playerHandle); put("system_corners", systemCorners)
         put("volume_bar", volumeBar)
         put("content_downloads", contentDownloads)
+        put("popup_glass_style", popupGlassStyle.key)
     }.toString()
     companion object {
         fun decode(text: String): MediaSettings {
@@ -36,7 +49,8 @@ internal data class MediaSettings(
                 json.opt("player_handle") as? Boolean ?: legacyChrome,
                 json.opt("system_corners") as? Boolean ?: legacyChrome,
                 json.opt("volume_bar") as? Boolean ?: false,
-                json.opt("content_downloads") as? Boolean ?: false)
+                json.opt("content_downloads") as? Boolean ?: false,
+                PopupGlassStyle.fromKey(json.opt("popup_glass_style") as? String))
         }
     }
 }
