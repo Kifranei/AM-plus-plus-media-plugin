@@ -213,3 +213,130 @@ class ContentDownloadsIntegrationTest {
             "content-download-rect-bottom" to FakeRect::class.java.getField("bottom")),
     )
 }
+
+class ContentDownloadTitleMatchTest {
+    @Test fun `exact title still matches best`() = org.junit.Assert.assertEquals(2, contentDownloadTitleMatch(" Jefe ", "Jefe"))
+    @Test fun `explicit badge variants after the title match`() {
+        for (s in listOf("Jefe\uFFFD", "Jefe \uFFFC", "Jefe E", "JefeE", "Jefe Explicit", "Jefe [E]", "Jefe \uD83C\uDD34"))
+            org.junit.Assert.assertEquals(s, 1, contentDownloadTitleMatch(s, "Jefe"))
+    }
+    @Test fun `different titles do not match`() {
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefe 2", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefes", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Intro", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefe", ""))
+    }
+}
+
+class ContentDownloadAnchorStabilityTest {
+    private val p = ContentDownloadButtonPlacement(10, 20, 40, 1, 1, 18)
+
+    @Test fun `short anchor gap keeps the button then recovers without flicker`() {
+        val h = ContentDownloadPlacementHold(1500)
+        assertEquals("show reason=anchor_found", h.update(0, p, "x").transition)
+        val gap = h.update(500, null, "anchor_node_missing")
+        assertEquals(p, gap.placement); assertEquals("hold reason=anchor_node_missing", gap.transition)
+        assertNull(h.update(900, null, "anchor_node_missing").transition)
+        val back = h.update(1000, p, "x")
+        assertEquals(p, back.placement); assertEquals("recover reason=anchor_reappeared", back.transition)
+        assertNull(h.update(1100, p, "x").transition)
+    }
+
+    @Test fun `sustained absence hides and logs the reason`() {
+        val h = ContentDownloadPlacementHold(1500)
+        h.update(0, p, "x")
+        assertNotNull(h.update(1499, null, "anchor_bounds_unavailable").placement)
+        val gone = h.update(1500, null, "anchor_bounds_unavailable")
+        assertNull(gone.placement); assertEquals("hide reason=anchor_bounds_unavailable_sustained", gone.transition)
+        assertNull(h.update(1600, null, "anchor_bounds_unavailable").transition)
+    }
+
+    @Test fun `page change resets so a stale position is never shown for a new page`() {
+        val h = ContentDownloadPlacementHold(1500)
+        h.update(0, p, "x")
+        assertEquals("hide reason=page_changed", h.reset())
+        assertNull(h.update(10, null, "anchor_node_missing").placement)
+        assertNull(h.reset())
+    }
+
+    @Test fun `same-named track row cannot hijack the title node`() {
+        val title = ContentDownloadAnchorCandidate(1, true, 40f)
+        val trackExact = ContentDownloadAnchorCandidate(2, false, 20f)
+        assertFalse(contentDownloadAnchorBetter(trackExact, title))
+        assertTrue(contentDownloadAnchorBetter(title, trackExact))
+        assertTrue(contentDownloadAnchorBetter(ContentDownloadAnchorCandidate(1, false, 40f), ContentDownloadAnchorCandidate(2, false, 20f)))
+        assertTrue(contentDownloadAnchorBetter(ContentDownloadAnchorCandidate(2, false, 40f), ContentDownloadAnchorCandidate(1, false, 40f)))
+        assertTrue(contentDownloadAnchorBetter(title, null))
+    }
+
+    @Test fun `track title with explicit badge does not match the album title`() {
+        assertEquals(0, contentDownloadTitleMatch("Nothing New E", "Fictional Illustrations"))
+        assertEquals(1, contentDownloadTitleMatch("Fictional Illustrations \uFFFC", "Fictional Illustrations"))
+    }
+
+    @Test fun `album hold keeps the last placement indefinitely until page change`() {
+        val h = ContentDownloadPlacementHold(CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE)
+        h.update(0, p, "x")
+        assertEquals(p, h.update(3_600_000, null, "anchor_node_missing").placement)
+        assertEquals(p, h.update(7_200_000, null, "anchor_node_missing").placement)
+        assertEquals("recover reason=anchor_reappeared", h.update(7_200_100, p, "x").transition)
+        assertEquals("hide reason=page_changed", h.reset())
+        assertNull(h.update(7_300_000, null, "anchor_node_missing").placement)
+    }
+
+    @Test fun `loose match accepts title merged with descriptors but not other titles`() {
+        val t = "Fictional Illustrations"
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations, Explicit, Fly By Midnight", t))
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations\nFly By Midnight", t))
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations Dolby Atmos", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional Illustrationsx", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional Illustrations", t))
+        assertFalse(contentDownloadTitleLooseMatch("Nothing New", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional", t))
+    }
+
+    @Test fun `miss summary reports counters and closest truncated candidates`() {
+        val s = contentDownloadMissSummary("Fictional Illustrations", 12, 2, 300, true,
+            listOf("Play", "Fictional Illustrations Remastered " + "x".repeat(80), "Fict other", "Play"))
+        assertTrue(s, s.startsWith("anchor_scan_miss title=\"Fictional Illustrations\" views=12 semanticsOwners=2 nodes=300 capped=true texts=["))
+        assertTrue(s, s.indexOf("Fictional Illustrations Remastered") < s.indexOf("Fict other"))
+        assertTrue(s, s.contains("…"))
+        assertEquals(1, Regex("\\bPlay\\b").findAll(s).count())
+    }
+
+    @Test fun `badge extent includes inline placeholder and suffix descriptors but not artist text`() {
+        val t = "Fictional Illustrations"
+        assertEquals(t.length, contentDownloadBadgeExtent(t, t))
+        assertEquals(t.length + 2, contentDownloadBadgeExtent("$t \uFFFC", t))
+        assertEquals("$t, Explicit".length, contentDownloadBadgeExtent("$t, Explicit", t))
+        assertEquals(t.length, contentDownloadBadgeExtent("$t, Explicit, Fly By Midnight", t))
+        assertEquals(t.length, contentDownloadBadgeExtent("$t\nFly By Midnight", t))
+    }
+
+    @Test fun `badge node to the right of the title moves the anchor to the badge right edge`() {
+        val title = ContentDownloadBounds(100f, 200f, 300f, 236f)
+        val badge = ContentDownloadBounds(306f, 208f, 326f, 228f)
+        val adjusted = checkNotNull(contentDownloadBadgeAdjust(title, listOf(badge)))
+        assertEquals(326f, adjusted.right, 0f)
+        assertEquals(100f, adjusted.left, 0f)
+        val placed = checkNotNull(contentDownloadButtonPlacement(adjusted, 360, 800, 1f, false))
+        assertTrue(placed.left + placed.iconLeft >= badge.right + 4 - 0.5f)
+        assertTrue(placed.left >= 0 && placed.left + placed.size <= 360)
+    }
+
+    @Test fun `unrelated or distant badge-like nodes leave the title placement unchanged`() {
+        val title = ContentDownloadBounds(100f, 200f, 300f, 236f)
+        assertNull(contentDownloadBadgeAdjust(title, emptyList()))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(100f, 400f, 120f, 420f))))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(500f, 208f, 520f, 228f))))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(20f, 208f, 40f, 228f))))
+    }
+
+    @Test fun `badge text recognition`() {
+        assertTrue(contentDownloadIsBadgeText("E"))
+        assertTrue(contentDownloadIsBadgeText("Explicit"))
+        assertTrue(contentDownloadIsBadgeText("\uD83C\uDD34"))
+        assertFalse(contentDownloadIsBadgeText(""))
+        assertFalse(contentDownloadIsBadgeText("Explicit Hits"))
+    }
+}

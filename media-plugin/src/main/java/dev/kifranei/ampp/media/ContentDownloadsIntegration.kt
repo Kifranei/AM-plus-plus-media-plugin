@@ -333,6 +333,7 @@ internal class ContentDownloadsIntegration(
         private var lastLayoutLookup = 0L
         private var nativeTitle: TextView? = null
         private var lastGlyphs: ContentDownloadBounds? = null
+        private val hold = ContentDownloadPlacementHold(if (kind == ContentDownloadPageKind.ALBUM) CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE else CONTENT_DOWNLOAD_ANCHOR_GRACE_MS)
         private var dialog: WeakReference<AlertDialog>? = null
         var pageId = ""
             private set
@@ -388,6 +389,7 @@ internal class ContentDownloadsIntegration(
             val title = (contracts.get(entity, "media-entity-get-title-method") as? String).orEmpty()
             if (id != pageId || title != pageTitle) {
                 pageId = id; pageTitle = title; anchor.clear(); nativeTitle = null; lastGlyphs = null; lastLayoutLookup = 0L
+                hold.reset()?.let { logAnchor(it) }
                 artistEntry.clear(); artistAnchor.clear()
             }
             if (entityRef?.get() !== entity) { entityRef = WeakReference(entity); enqueueEntity(entity) }
@@ -397,28 +399,38 @@ internal class ContentDownloadsIntegration(
             if (removed || closed || root.width <= 0 || root.height <= 0) return
             val now = SystemClock.uptimeMillis()
             if (now - lastLookup >= 500) { lastLookup = now; refreshMetadata() }
-            if (pageId.isEmpty() || kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) { button.visibility = View.GONE; return }
+            if (pageId.isEmpty() || kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) {
+                hold.reset()?.let { logAnchor(it) }
+                button.visibility = View.GONE; return
+            }
             root.getLocationOnScreen(position)
             val nativeGlyphs = if (kind == ContentDownloadPageKind.ALBUM) {
                 if (nativeTitle?.isAttachedToWindow != true) nativeTitle = root.findViewById<TextView>(albumTitleId)
-                nativeTitle?.takeIf { normalizeContentDownloadTitle(it.text.toString()) == normalizeContentDownloadTitle(pageTitle) }
+                nativeTitle?.takeIf { contentDownloadTitleMatch(it.text.toString(), pageTitle) > 0 }
                     ?.let { textViewGlyphBounds(it, position) }
             } else null
+            anchor.unadjusted = null
             val glyphs = nativeGlyphs ?: run {
                 if (now - lastLayoutLookup >= 500 || lastLayoutLookup == 0L) {
                     lastLayoutLookup = now
-                    anchor.find(root, pageTitle)
+                    anchor.find(root, pageTitle, now)
                 }
                 anchor.bounds(position)
             }
             lastGlyphs = glyphs
-            val placement = if (kind == ContentDownloadPageKind.ARTIST) {
+            val computed = if (kind == ContentDownloadPageKind.ARTIST) {
                 artistEntry.placement(glyphs, anchor.hasNode, root.width, root.height, root.resources.displayMetrics.density,
                     root.layoutDirection == View.LAYOUT_DIRECTION_RTL) { artistAnchor.placement(root, position, now) }
             } else glyphs?.let { contentDownloadButtonPlacement(it, root.width, root.height, root.resources.displayMetrics.density,
                 root.layoutDirection == View.LAYOUT_DIRECTION_RTL) }
-            if (placement == null) { button.visibility = View.GONE; return }
+                ?: anchor.unadjusted?.let { contentDownloadButtonPlacement(it, root.width, root.height, root.resources.displayMetrics.density,
+                    root.layoutDirection == View.LAYOUT_DIRECTION_RTL) }
+            val held = hold.update(now, computed, if (glyphs == null) (if (anchor.hasNode) "anchor_bounds_unavailable" else "anchor_node_missing") else "placement_rejected")
+            held.transition?.let { logAnchor(it) }
+            val shown = held.placement
+            if (shown == null) { button.visibility = View.GONE; return }
             button.visibility = View.VISIBLE
+            val placement: ContentDownloadButtonPlacement = shown
             val params = button.layoutParams as FrameLayout.LayoutParams
             if (params.width != placement.size || params.height != placement.size) {
                 params.width = placement.size; params.height = placement.size; button.layoutParams = params
@@ -438,6 +450,7 @@ internal class ContentDownloadsIntegration(
             nativeTitle = null; anchor.clear(); entityRef = null; lastGlyphs = null
             artistEntry.clear(); artistAnchor.clear()
         }
+        private fun logAnchor(message: String) { MediaRuntime.log("content_download_anchor: kind=$kind page=$pageId $message") }
         private fun dp(value: Int) = (value * root.resources.displayMetrics.density).roundToInt()
     }
 }
@@ -545,6 +558,24 @@ internal fun contentDownloadButtonPlacement(title: ContentDownloadBounds, width:
     return null
 }
 
+/**
+ * 2 = exact title, 1 = title followed only by an explicit/clean badge (inline placeholder char, "E", "Explicit"...), 0 = no match.
+ * Apple's title row renders the "E" badge inside the same text node/semantics, so strict equality used to reject the page title.
+ */
+internal fun contentDownloadTitleMatch(plain: String, title: String): Int {
+    val t = normalizeContentDownloadTitle(title)
+    if (t.isEmpty()) return 0
+    val n = normalizeContentDownloadTitle(plain)
+    if (n == t) return 2
+    if (!n.startsWith(t)) return 0
+    val rest = n.substring(t.length).filter { it.code != 0xFFFC && it.code != 0xFFFD && it.code !in 0x200b..0x200f && it.code != 0x2060 && it.code != 0xFEFF }
+        .trim().trim('[', ']', '(', ')').trim().lowercase()
+    return if (rest in CONTENT_DOWNLOAD_BADGE_TEXT) 1 else 0
+}
+
+private val CONTENT_DOWNLOAD_BADGE_TEXT = setOf("", "e", "c", "explicit", "clean", "explicit content", "\uD83C\uDD34", "\uD83C\uDD72", "\uD83C\uDD54", "\uD83C\uDD52",
+    "露骨", "不适宜内容", "明确", "已净化")
+
 internal fun normalizeContentDownloadTitle(value: String) = value.filter { it.code !in 0x202a..0x202e && it.code !in 0x2066..0x2069 }
     .trim().replace(Regex("\\s+"), " ")
 
@@ -555,38 +586,90 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
     private var glyphs: ContentDownloadGlyphGeometry? = null
     private var geometryReported = false
     val hasNode: Boolean get() = node != null
-    fun clear() { owner = null; node = null; glyphs = null }
+    fun clear() { owner = null; node = null; glyphs = null; lostSince = 0L; badgeNodes = emptyList(); unadjusted = null }
 
-    fun find(root: View, title: String) {
-        clear()
-        if (title.isBlank()) return
+    private var lostSince = 0L
+    private var missReported = false
+    private var looseReported = false
+    private var badgeReported = false
+    private var badgeNodes: List<Any> = emptyList()
+    /** Title bounds before badge adjustment, so the caller can fall back when the badge-adjusted spot does not fit. */
+    var unadjusted: ContentDownloadBounds? = null
+
+    /**
+     * Re-scans for the title. A scan that finds nothing (page recomposing, text layout not ready, rows being loaded) keeps the
+     * previous node for [CONTENT_DOWNLOAD_ANCHOR_GRACE_MS] instead of dropping it, so the button does not flicker or vanish.
+     */
+    fun find(root: View, title: String, now: Long = 0L) {
+        if (title.isBlank()) { clear(); return }
+        var foundOwner: View? = null
+        var foundNode: Any? = null
+        var foundGlyphs: ContentDownloadGlyphGeometry? = null
+        var best: ContentDownloadAnchorCandidate? = null
+        var looseOwner: View? = null; var looseNode: Any? = null; var looseGlyphs: ContentDownloadGlyphGeometry? = null
+        var looseBest: ContentDownloadAnchorCandidate? = null; var looseText: String? = null
+        val texts = ArrayList<String>(); var owners = 0; var nodeTotal = 0; var capped = false
         val views = ArrayDeque<View>(); views.add(root)
+        val badgeCandidates = ArrayList<Pair<View, Any>>()
         var visited = 0
-        var bestHeading = false
-        var bestSize = 0f
-        while (views.isNotEmpty() && visited++ < 256) {
+        while (views.isNotEmpty()) {
+            if (visited++ >= 256) { capped = true; break }
             val view = views.removeFirst()
             if (view is ViewGroup) for (index in 0 until min(view.childCount, 256)) views.add(view.getChildAt(index))
             val semanticOwner = contracts.call("content-download-compose-semantics", view) ?: continue
             val semanticRoot = contracts.call("content-download-semantics-root", semanticOwner) ?: continue
+            owners++
             val nodes = ArrayDeque<Any>(); nodes.add(semanticRoot)
             val seen = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
             var count = 0
-            while (nodes.isNotEmpty() && count++ < 512) {
+            while (nodes.isNotEmpty()) {
+                if (count++ >= 1024) { capped = true; break }
+                nodeTotal++
                 val current = nodes.removeFirst()
                 if (!seen.add(current)) continue
                 val properties = semanticsProperties(current)
                 val text = properties["Text"] as? List<*>
                 val plain = text?.joinToString("") { element -> contracts.call("content-download-annotated-text", element) as? String ?: (element as? String).orEmpty() }
-                if (plain != null && normalizeContentDownloadTitle(plain) == normalizeContentDownloadTitle(title)) {
+                val match = if (plain != null) contentDownloadTitleMatch(plain, title) else 0
+                if (badgeCandidates.size < 32 && (plain != null && contentDownloadIsBadgeText(plain) ||
+                        semanticsDescriptions(properties).any(::contentDownloadIsBadgeText))) badgeCandidates.add(view to current)
+                if (plain != null && match == 0 && texts.size < 200) texts.add(plain)
+                if (plain != null && match == 0 && contentDownloadTitleLooseMatch(plain, title)) {
+                    val local = glyphGeometry(properties["GetTextLayoutResult"], contentDownloadBadgeExtent(plain, title))
+                    if (local != null) {
+                        val candidate = ContentDownloadAnchorCandidate(0, properties.containsKey("Heading"), local.lastLine.height)
+                        if (contentDownloadAnchorBetter(candidate, looseBest)) { looseBest = candidate; looseText = plain; looseOwner = view; looseNode = current; looseGlyphs = local }
+                    }
+                }
+                if (plain != null && match > 0) {
                     val local = glyphGeometry(properties["GetTextLayoutResult"], plain.length)
-                    val heading = properties.containsKey("Heading")
-                    if (local != null && (node == null || heading && !bestHeading || heading == bestHeading && local.lastLine.height > bestSize)) {
-                        owner = view; node = current; glyphs = local; bestHeading = heading; bestSize = local.lastLine.height
+                    if (local != null) {
+                        val candidate = ContentDownloadAnchorCandidate(match, properties.containsKey("Heading"), local.lastLine.height)
+                        if (contentDownloadAnchorBetter(candidate, best)) {
+                            best = candidate; foundOwner = view; foundNode = current; foundGlyphs = local
+                        }
                     }
                 }
                 (contracts.call("content-download-semantics-children", current, true, false) as? List<*>)?.take(512)?.filterNotNull()?.forEach(nodes::add)
             }
+        }
+        if (foundNode == null && looseNode != null) {
+            foundOwner = looseOwner; foundNode = looseNode; foundGlyphs = looseGlyphs
+            if (!looseReported) { looseReported = true; MediaRuntime.log("content_download_anchor: matched merged title node (loose)") }
+            if (!badgeReported && contentDownloadBadgeExtent(looseText ?: "", title) > normalizeContentDownloadTitle(title).length) {
+                badgeReported = true; MediaRuntime.log("content_download_anchor: badge-adjusted placement source=text extent")
+            }
+        }
+        if (foundNode != null) {
+            owner = foundOwner; node = foundNode; glyphs = foundGlyphs; lostSince = 0L; missReported = false
+            badgeNodes = badgeCandidates.filter { it.first === foundOwner }.map { it.second }
+        } else {
+            if (!missReported) {
+                missReported = true
+                MediaRuntime.log("content_download_anchor: " + contentDownloadMissSummary(title, visited, owners, nodeTotal, capped, texts))
+            }
+            if (lostSince == 0L) lostSince = now
+            if (node != null && now - lostSince >= CONTENT_DOWNLOAD_ANCHOR_GRACE_MS) clear()
         }
     }
 
@@ -596,7 +679,16 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
         val local = glyphs ?: return null
         val anchored = contentDownloadComposeGlyphBounds(native, local) ?: return null
         val position = IntArray(2); view.getLocationOnScreen(position)
-        val placed = anchored.translated((position[0] - rootScreenPosition[0]).toFloat(), (position[1] - rootScreenPosition[1]).toFloat())
+        val dx = (position[0] - rootScreenPosition[0]).toFloat(); val dy = (position[1] - rootScreenPosition[1]).toFloat()
+        val titleBounds = anchored.translated(dx, dy)
+        val badge = badgeNodes.mapNotNull { readRect(contracts.call("content-download-semantics-bounds", it)) }
+            .let { contentDownloadBadgeAdjust(anchored, it) }
+        val placed = badge?.translated(dx, dy) ?: titleBounds
+        unadjusted = if (badge != null) titleBounds else null
+        if (badge != null && !badgeReported) {
+            badgeReported = true
+            MediaRuntime.log("content_download_anchor: badge-adjusted placement source=node title=$titleBounds placed=$placed")
+        }
         if (!geometryReported) {
             geometryReported = true
             MediaRuntime.log("content_download_anchor: native=$native glyph=$local placed=$placed")
@@ -610,10 +702,13 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
         config.take(64).forEach { item ->
             val entry = item as? Map.Entry<*, *> ?: return@forEach
             val name = contracts.field("content-download-semantics-key-name", entry.key) as? String ?: return@forEach
-            if (name in setOf("Text", "Heading", "GetTextLayoutResult")) result[name] = entry.value
+            if (name in setOf("Text", "Heading", "GetTextLayoutResult", "ContentDescription")) result[name] = entry.value
         }
         return result
     }
+
+    private fun semanticsDescriptions(properties: Map<String, Any?>): List<String> =
+        (properties["ContentDescription"] as? List<*>)?.filterIsInstance<String>().orEmpty()
 
     internal fun glyphBounds(action: Any?, textLength: Int): ContentDownloadBounds? = glyphGeometry(action, textLength)?.lastLine
 
@@ -653,7 +748,11 @@ private fun textViewGlyphBounds(title: TextView, rootPosition: IntArray): Conten
     val line = layout.lineCount - 1
     val left = position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineLeft(line)
     val top = (position[1] - rootPosition[1] + title.extendedPaddingTop + layout.getLineTop(line)).toFloat()
-    val result = ContentDownloadBounds(left, top, position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineRight(line),
+    // A badge set as a compound drawable sits after the text; keep the button beyond it.
+    val rtl = title.layoutDirection == View.LAYOUT_DIRECTION_RTL
+    val badge = title.compoundDrawablesRelative.let { if (rtl) it[0] else it[2] }
+    val badgeWidth = if (badge != null && !rtl) badge.intrinsicWidth.coerceAtLeast(0) + title.compoundDrawablePadding else 0
+    val result = ContentDownloadBounds(left, top, position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineRight(line) + badgeWidth,
         position[1] - rootPosition[1] + title.extendedPaddingTop + layout.getLineBottom(line).toFloat())
     val visible = Rect()
     if (!title.getGlobalVisibleRect(visible) || result.top + rootPosition[1] < visible.top || result.bottom + rootPosition[1] > visible.bottom) return null
@@ -714,3 +813,118 @@ private val CONTENT_DOWNLOAD_METHODS = listOf(
 
 private val CONTENT_DOWNLOAD_FIELDS = listOf("loader-song-id", "loader-resume-label", "semantics-key-name", "semantics-action", "semantics-id", "rect-left", "rect-top", "rect-right", "rect-bottom")
     .map { "content-download-$it" }
+
+internal const val CONTENT_DOWNLOAD_ANCHOR_GRACE_MS = 1500L
+/** Album pages keep the last good placement for as long as the same page stays current (reset on page change / close). */
+internal const val CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE = Long.MAX_VALUE
+
+/**
+ * Tolerant title match for semantics nodes that merge the title with descriptors ("Title, Explicit, Artist", "Title\nArtist"):
+ * the node text must start with the full title followed by a non-alphanumeric boundary. Weaker than [contentDownloadTitleMatch],
+ * so it is only used when no strict candidate exists.
+ */
+internal fun contentDownloadTitleLooseMatch(plain: String, title: String): Boolean {
+    val t = normalizeContentDownloadTitle(title)
+    if (t.isEmpty()) return false
+    val n = normalizeContentDownloadTitle(plain)
+    if (n.length <= t.length || !n.startsWith(t)) return false
+    val next = n[t.length]
+    return !next.isLetterOrDigit() || !t.last().isLetterOrDigit()
+}
+
+/** One-line summary of why no anchor matched: scan counters plus the closest text candidates (truncated). */
+internal fun contentDownloadMissSummary(title: String, views: Int, owners: Int, nodes: Int, capped: Boolean, texts: List<String>): String {
+    fun cut(v: String) = normalizeContentDownloadTitle(v).replace('\n', ' ').let { if (it.length > 48) it.take(48) + "…" else it }
+    val t = normalizeContentDownloadTitle(title)
+    val ranked = texts.distinct().sortedByDescending { n ->
+        val x = normalizeContentDownloadTitle(n)
+        when { x.contains(t) -> 3; t.isNotEmpty() && x.take(4).equals(t.take(4), true) -> 2; else -> 0 }
+    }.take(5)
+    return "anchor_scan_miss title=\"${cut(title)}\" views=$views semanticsOwners=$owners nodes=$nodes capped=$capped texts=${ranked.map(::cut)}"
+}
+
+internal data class ContentDownloadAnchorCandidate(val match: Int, val heading: Boolean, val height: Float)
+
+/**
+ * Title-level ranking: a heading beats plain text, then the larger glyph height (page title is bigger than any track row),
+ * and only then the exact-vs-badge match. A same-named track row (smaller, not a heading) can therefore not hijack the title.
+ */
+internal fun contentDownloadAnchorBetter(candidate: ContentDownloadAnchorCandidate, best: ContentDownloadAnchorCandidate?): Boolean {
+    if (best == null) return true
+    if (candidate.heading != best.heading) return candidate.heading
+    if (kotlin.math.abs(candidate.height - best.height) > 1f) return candidate.height > best.height
+    return candidate.match > best.match
+}
+
+internal data class ContentDownloadHoldResult(val placement: ContentDownloadButtonPlacement?, val transition: String?)
+
+/** Keeps the last good button placement through short anchor gaps; hides only after sustained absence. */
+internal class ContentDownloadPlacementHold(private val graceMs: Long = CONTENT_DOWNLOAD_ANCHOR_GRACE_MS) {
+    private var last: ContentDownloadButtonPlacement? = null
+    private var lastGoodAt = 0L
+    private var holding = false
+    private var visible = false
+
+    fun reset(): String? {
+        val was = visible
+        last = null; holding = false; visible = false
+        return if (was) "hide reason=page_changed" else null
+    }
+
+    fun update(now: Long, placement: ContentDownloadButtonPlacement?, missReason: String): ContentDownloadHoldResult {
+        if (placement != null) {
+            val transition = when {
+                !visible -> "show reason=anchor_found"
+                holding -> "recover reason=anchor_reappeared"
+                else -> null
+            }
+            last = placement; lastGoodAt = now; holding = false; visible = true
+            return ContentDownloadHoldResult(placement, transition)
+        }
+        val kept = last
+        if (kept != null && visible && now - lastGoodAt < graceMs) {
+            val transition = if (!holding) "hold reason=$missReason" else null
+            holding = true
+            return ContentDownloadHoldResult(kept, transition)
+        }
+        val transition = if (visible) "hide reason=${missReason}_sustained" else null
+        last = null; holding = false; visible = false
+        return ContentDownloadHoldResult(null, transition)
+    }
+}
+
+/** True for node text / content description that is only an Explicit/Clean badge ("E", "Explicit", placeholder glyph...). */
+internal fun contentDownloadIsBadgeText(value: String): Boolean {
+    val n = normalizeContentDownloadTitle(value).filter { it.code != 0xFFFC && it.code != 0xFFFD && it.code !in 0x200b..0x200f && it.code != 0x2060 && it.code != 0xFEFF }
+        .trim().trim('[', ']', '(', ')').trim().lowercase()
+    return n.isNotEmpty() && n in CONTENT_DOWNLOAD_BADGE_TEXT
+}
+
+/**
+ * Number of leading characters of [plain] to measure for the title line: the title plus trailing badge characters
+ * (inline placeholder, whitespace, ", Explicit"-style suffix), so inline badge glyphs are inside the measured bounds.
+ */
+internal fun contentDownloadBadgeExtent(plain: String, title: String): Int {
+    val t = normalizeContentDownloadTitle(title).length
+    val n = normalizeContentDownloadTitle(plain)
+    if (n.length <= t) return n.length.coerceAtLeast(1).coerceAtMost(plain.length.coerceAtLeast(1))
+    val rest = n.substring(t)
+    val suffix = rest.trimStart(',', ';', ' ', '\u00a0').trim()
+    val firstLine = suffix.substringBefore('\n')
+    val badgeOnly = rest.all { it.isWhitespace() || it.code == 0xFFFC || it.code in 0x200b..0x200f || it == ',' } || contentDownloadIsBadgeText(firstLine)
+    return (if (badgeOnly) n.length else t).coerceIn(1, plain.length.coerceAtLeast(1))
+}
+
+/**
+ * Extends [title] to the right edge of a separate badge node that sits right after it on the same line.
+ * Returns null when no such node exists (placement stays on the title text).
+ */
+internal fun contentDownloadBadgeAdjust(title: ContentDownloadBounds, badges: List<ContentDownloadBounds>): ContentDownloadBounds? {
+    val maxGap = title.height.coerceAtLeast(8f)
+    val best = badges.filter { it.valid() }.filter { b ->
+        val centerY = (b.top + b.bottom) / 2
+        centerY >= title.top && centerY <= title.bottom && b.left >= title.right - 2f && b.left - title.right <= maxGap && b.right > title.right &&
+            b.height <= title.height * 1.5f
+    }.maxByOrNull { it.right } ?: return null
+    return ContentDownloadBounds(title.left, title.top, best.right, title.bottom).takeIf(ContentDownloadBounds::valid)
+}
