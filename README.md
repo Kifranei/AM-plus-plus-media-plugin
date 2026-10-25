@@ -1,6 +1,6 @@
 # AM 媒体增强插件
 
-用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606、1607、1609、1611**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供八个功能开关，中英文设置跟随界面语言。
+用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606、1607、1609、1611、1613**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供八个功能开关，中英文设置跟随界面语言。
 
 下载：[最新发布](https://github.com/Kifranei/AM-plus-plus-media-plugin/releases/latest)。
 
@@ -32,6 +32,10 @@
 「解除分享白名单限制」同时控制歌曲卡片与歌词卡片。旧版歌词分享开关自动迁移，明确保存的新开关值优先；新增图片入口位于原生可分享应用横栏，原有拷贝链接和更多选项保留。
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
+
+v1.3.4 / 16 适配 Apple Music 7.0.0-beta / 1613，并修复 1613 上词幕状态栏歌词无法启动（1613 的歌词指针字段由 `g1` 改为 `f1`，旧名称仍存在但类型为 int）；平板横屏双栏播放页不再显示重复的把手（宽度 ≥ 600dp 时由宿主/AM++ 提供把手）。profile 校验脚本现按精确类型／签名检查词幕、音质对话框和卡片分享的命名成员。新增 Apple Music 7.0.0-beta / 1613 profile `applemusic-1613.json`，由 1611 逐项按 1613 DEX 重新映射（39 个类改名（含 a7.d），如 `player.y`→`x`、`fragment.m`→`l`、`fragment.e`→`d`、`androidx.fragment.app.l`→`n`；字段普遍前移一位，如 `PlayerMainFragment.b0`→`a0`、`BottomSheetBehavior.o0`→`n0`；卡片分享观察者 `commerce.activities.m`→`a7.d`；「更多」菜单点击方法改回 `z(int, View, item)`），并用 1613 APK 校验全部符号与资源名。Hook 改为严格失败开放：回调在暂存副本上运行，抛出异常时宿主调用保持原样、不再让 AM++ 停用整个插件，同一 Hook 失败 3 次后仅注销该 Hook。新增测试诊断：所有诊断行以 `media-diag:` 开头，写入 LSPosed 日志、logcat 标签 `AMPP-media` 及插件数据目录 `media-diag.log`，包括启动时的宿主版本／profile、每个功能的 ACTIVE／UNSUPPORTED／FAILED、启动自检列出的全部无法解析的合约（类.方法(参数) 或 类.字段:类型），以及运行中失败的 Hook 成员。测试者提交日志时请过滤 `media-diag:`。
+
+v1.3.4 / 16 adapts to Apple Music 7.0.0-beta / 1613 and fixes Lyricon status-bar lyrics not starting on 1613 (the lyrics pointer field moved from `g1` to `f1`; the old name still exists as an int); the two-pane tablet-landscape player no longer shows a duplicate drag handle (at ≥ 600dp the host/AM++ provides it). The profile verifier now checks exact types/signatures for the Lyricon, audio-quality dialog and card-sharing named members. Adds the Apple Music 7.0.0-beta / 1613 profile `applemusic-1613.json`, remapped from 1611 against the 1613 DEX (39 class renames, most fields shifted by one letter, card-sharing observer `commerce.activities.m` → `a7.d`, More-menu click back to `z(int, View, item)`), with all symbols and resource names verified against the 1613 APK. Hooks are now strictly fail-open: callbacks run on a staged copy of the call, a throwing callback leaves the host call untouched and no longer makes AM++ stop the whole plugin, and a hook failing 3 times unregisters only itself. Tester diagnostics: every line starts with `media-diag:` (LSPosed log, logcat tag `AMPP-media`, and `media-diag.log` in the plugin data directory) and covers host build/profile at startup, each capability's ACTIVE/UNSUPPORTED/FAILED result, a startup self-check listing every unresolved contract, and any failing hook member at runtime.
 
 v1.3.3 / 15 修复专辑详情页标题带「E」（Explicit）标识时下载按钮消失：标题行把标识与标题放在同一文本节点（内联占位符／附加「E」），旧逻辑要求文本与专辑名严格相等，匹配失败后按钮被隐藏。现改为容忍标题后仅跟随 Explicit／Clean 标识的文本（精确匹配优先），按钮定位到包含标识的行尾；原生 TextView 标题若以复合图标显示标识也会避开。适用于 Apple Music 1606/1607/1609/1611（共用同一实现），并新增单元测试。
 
@@ -83,7 +87,7 @@ Linux/macOS 使用 `./gradlew`。产物位于 `media-plugin/build/dist/`。
 可用自己的 Apple Music APK 验证目标符号：
 
 ```text
-python -B scripts/verify-host-profile.py apple-music-1611.apk --glass   # 按 APK 自身版本选择 profile
+python -B scripts/verify-host-profile.py apple-music-1613.apks --glass   # 按 APK 自身版本选择 profile
 python -B scripts/verify-all-profiles.py --apk-dir ~/Downloads   # 逐个核对所有已发布 profile（没有 APK 的版本显示 SKIP）
 ```
 

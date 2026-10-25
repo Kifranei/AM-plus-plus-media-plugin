@@ -13,7 +13,7 @@ import java.lang.reflect.Executable
 class PluginProfileSelectionTest {
     private val assets = File("src/main/assets")
     private val sources = File("src/main/java")
-    private val supported = listOf(1606L, 1607L, 1609L, 1611L)
+    private val supported = listOf(1606L, 1607L, 1609L, 1611L, 1613L)
 
     private fun entries() = ProfileIndex.parse(File(assets, ProfileIndex.ASSET).readText())
     private fun document(entry: ProfileEntry) = JSONObject(File(assets, entry.asset).readText())
@@ -51,6 +51,7 @@ class PluginProfileSelectionTest {
         }
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1608))
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1612))
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1614))
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0", 1611))
         assertNull(ProfileIndex.select(all, "com.example.music", "7.0.0-beta", 1611))
     }
@@ -78,6 +79,29 @@ class PluginProfileSelectionTest {
         assertThrows(PluginUnsupportedException::class.java) {
             PluginProfiles.load(Host("com.example.music", "7.0.0-beta", 1611, assets))
         }
+    }
+
+    @Test fun `lyricon pointer field is the SongInfoPtr field verified on the lyrics install owner`() {
+        // 1613 shipped the 1611 name g1, which still exists on PlayerLyricsViewFragment but is an int there,
+        // so LyriconIntegration's check(type == SongInfoPtr) failed at startup.
+        val pointer = "Lcom/apple/android/music/ttml/javanative/model/SongInfo\$SongInfoPtr;"
+        entries().forEach { entry ->
+            val doc = document(entry)
+            val owner = doc.getJSONObject("indexed").getJSONObject("methodContracts")
+                .getJSONObject("lyrics-install-method").getString("owner")
+            val fields = doc.getJSONObject("verification").getJSONObject("fieldTypes")
+                .getJSONObject("L" + owner.replace('.', '/') + ";")
+            val field = doc.getJSONObject("lyricon").getString("installedPointerField")
+            assertEquals("${entry.asset} lyricon.installedPointerField", pointer, fields.optString(field))
+            assertEquals("${entry.asset} SongInfoPtr fields", listOf(field),
+                fields.keys().asSequence().filter { fields.getString(it) == pointer }.toList())
+        }
+    }
+
+    @Test fun `profile types resolve array descriptors`() {
+        PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", 1613, assets))
+        assertEquals(Array<String>::class.java, PluginProfiles.type("[Ljava.lang.String;"))
+        assertEquals(java.lang.Float.TYPE, PluginProfiles.type("float"))
     }
 
     @Test fun `each profile describes its own build and carries every section the code reads`() {
@@ -110,7 +134,7 @@ class PluginProfileSelectionTest {
     @Test fun `more menu click arguments bind by type for both parameter orders`() {
         val view = Any(); val item = Any()
         val types = { names: List<Class<*>> -> names.toTypedArray() }
-        // 1606/1607/1609: (int, View, item)
+        // 1606/1607/1609/1613: (int, View, item)
         assertArrayEquals(arrayOf<Any?>(3, view, item), bindMoreMenuClickArguments(
             types(listOf(Integer.TYPE, View::class.java, Any::class.java)), 3, view, item))
         // 1611: (item, View, int)
@@ -124,6 +148,14 @@ class PluginProfileSelectionTest {
                 .getJSONObject("more-action-click").getJSONArray("parameters")
             val list = (0 until params.length()).map(params::getString)
             assertEquals(entry.asset, setOf("int", "android.view.View", "com.apple.android.music.model.CollectionItemView"), list.toSet())
+            // 1611 is the only build with (item, View, int); 1613 returned to (int, View, item).
+            val expected = if (entry.versionCode == 1611L) listOf("com.apple.android.music.model.CollectionItemView", "android.view.View", "int")
+                else listOf("int", "android.view.View", "com.apple.android.music.model.CollectionItemView")
+            assertEquals(entry.asset, expected, list)
         }
+    }
+    @Test fun `diagnostic plugin build matches plugin json`() {
+        val manifest = JSONObject(File("plugin.json").readText())
+        assertEquals("${manifest.getString("versionName")}/${manifest.getInt("versionCode")}", PLUGIN_BUILD)
     }
 }

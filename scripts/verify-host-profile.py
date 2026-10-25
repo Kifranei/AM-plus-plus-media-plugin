@@ -5,7 +5,7 @@ complete method signature (owner, static/instance descriptor and return type) an
 adaptation pinned one, the field name. No APK code is executed and no file is written.
 
 Usage:
-    python scripts/verify-host-profile.py apple-music-1611.apk --glass   # the profile is chosen from the APK's own version
+    python scripts/verify-host-profile.py apple-music-1613.apks --glass   # the profile is chosen from the APK's own version
 """
 import argparse
 import io
@@ -288,6 +288,85 @@ def main():
                 native = classes.get(owner, {})
                 if native.get('fields', {}).get(contract['name']) != descriptor(contract['type']) or native.get('field_access', {}).get(contract['name'], 8) & 8:
                     failures.append(f'invalid exact field contract {symbol}: {owner} {contract["name"]}')
+
+        if document:
+            # Named-member sections are read with reflection by the integrations, so existence is not
+            # enough: 1613 kept the 1611 Lyricon pointer name `g1`, which still exists but is now an int
+            # (the SongInfoPtr moved to `f1`). Check the exact descriptors each install() asks for.
+            def ldesc(name): return 'L' + name.replace('.', '/') + ';'
+            def declared(owner, signature):
+                return signature in classes.get(ldesc(owner), {}).get('methods', set())
+            def field_type(owner, name):
+                return classes.get(ldesc(owner), {}).get('fields', {}).get(name)
+            def method_named(owner, name, params):
+                return sorted(sig for sig in classes.get(ldesc(owner), {}).get('methods', set())
+                              if sig.startswith(name + '(' + params + ')'))
+            def require(ok, message):
+                nonlocal_checks[0] += 1
+                if not ok:
+                    failures.append(message)
+            nonlocal_checks = [0]
+            pointer = 'Lcom/apple/android/music/ttml/javanative/model/SongInfo$SongInfoPtr;'
+            native = 'com.apple.android.music.ttml.javanative.model.SongInfo$SongInfoNative'
+            lyricon = document.get('lyricon')
+            if lyricon:
+                model, item = lyricon['viewModelClass'], lyricon['itemClass']
+                install = document['indexed']['methodContracts']['lyrics-install-method']
+                field = lyricon['installedPointerField']
+                actual = field_type(install['owner'], field)
+                require(actual == pointer, f'lyricon.installedPointerField {install["owner"]}.{field} is {actual}, '
+                        f'expected {pointer} (SongInfoPtr fields: '
+                        f'{[n for n, t in classes.get(ldesc(install["owner"]), {}).get("fields", {}).items() if t == pointer]})')
+                require(method_named(model, lyricon['buildMethod'], pointer), f'lyricon.buildMethod {model}.{lyricon["buildMethod"]}({pointer}) missing')
+                require(method_named(model, lyricon['loadMethod'], ldesc(item)), f'lyricon.loadMethod {model}.{lyricon["loadMethod"]}({item}) missing')
+                require(declared(model, '<init>(Landroid/app/Application;)V'), f'lyricon {model}(Application) constructor missing')
+                for getter in ('getCurrentSystemLyricsLanguage()', 'getTranslationSelectedLiveResult()', 'getPronunciationSelectedLiveResult()'):
+                    require(any(sig.startswith(getter) for sig in classes.get(ldesc(model), {}).get('methods', set())),
+                            f'lyricon {model}.{getter} missing')
+                languages = [sig[len('getPronunciationLanguages()'):] for sig in classes.get(ldesc(native), {}).get('methods', set())
+                             if sig.startswith('getPronunciationLanguages()')]
+                require(len(languages) == 1 and method_named(lyricon['localeUtilClass'], 'matchToSystemLyricsScript', languages[0]),
+                        f'lyricon.localeUtilClass {lyricon["localeUtilClass"]}.matchToSystemLyricsScript({languages}) missing')
+                require(declared(lyricon['observerClass'], 'onChanged(Ljava/lang/Object;)V'),
+                        f'lyricon.observerClass {lyricon["observerClass"]} is not an Observer (no onChanged(Object))')
+            quality = document.get('audioQualityDialog')
+            if quality:
+                binding = quality['bindingClass']
+                require(method_named(binding, quality['bindingLookupMethod'], 'Landroid/view/View;') ==
+                        [quality['bindingLookupMethod'] + '(Landroid/view/View;)' + ldesc(binding)],
+                        f'audioQualityDialog.bindingLookupMethod {binding}.{quality["bindingLookupMethod"]}(View) is not the binding lookup')
+                require(declared(binding, quality['bindingExecuteMethod'] + '()V'),
+                        f'audioQualityDialog.bindingExecuteMethod {binding}.{quality["bindingExecuteMethod"]}()V missing')
+                require(ldesc(quality['dialogClass']) in classes, f'audioQualityDialog.dialogClass {quality["dialogClass"]} missing')
+            card = document.get('cardSharing')
+            if card:
+                for key, owner, expected in (('sourceListField', card['sourceClass'], 'Ljava/util/ArrayList;'),
+                                             ('progressOptionField', card['progressClass'], ldesc(card['itemClass'])),
+                                             ('progressItemField', card['progressClass'], ldesc(card['itemClass']))):
+                    actual = field_type(owner, card[key])
+                    require(actual == expected, f'cardSharing.{key} {owner}.{card[key]} is {actual}, expected {expected}')
+                require(field_type(card['observerClass'], card['observerProgressField']) is not None,
+                        f'cardSharing.observerProgressField {card["observerClass"]}.{card["observerProgressField"]} missing')
+                require(method_named(card['resultClass'], card['resultValueMethod'], '') ==
+                        [card['resultValueMethod'] + '()Ljava/lang/Object;'],
+                        f'cardSharing.resultValueMethod {card["resultClass"]}.{card["resultValueMethod"]}()Object missing')
+                require(method_named(card['fileProviderClass'], card['fileProviderMethod'],
+                                     'Landroid/content/Context;Ljava/io/File;Ljava/lang/String;') ==
+                        [card['fileProviderMethod'] + '(Landroid/content/Context;Ljava/io/File;Ljava/lang/String;)Landroid/net/Uri;'],
+                        f'cardSharing.fileProviderMethod {card["fileProviderClass"]}.{card["fileProviderMethod"]} is not getUriForFile')
+                item = ldesc(card['itemClass'])
+                require(declared(card['viewModelClass'], f'setShareItemDetails({item}{item}[Ljava/lang/String;Ljava/lang/String;)V'),
+                        f'cardSharing {card["viewModelClass"]}.setShareItemDetails missing')
+            for section, keys in (('audioOutput', ('buttonClass',)), ('playerMoreMenu', ('dialogClass',)),
+                                  ('playerDialogs', ('confirmationFragmentClass', 'sleepFragmentClass')),
+                                  ('contentDownloads', ('artistFragmentClass', 'artistModelClass', 'albumFragmentClass',
+                                                        'loaderContinuationClass', 'composeAlbumFragmentClass',
+                                                        'composeAlbumModelClass'))):
+                for key in keys:
+                    name = document.get(section, {}).get(key)
+                    if name:
+                        require(ldesc(name) in classes, f'{section}.{key} class {name} missing')
+            checks += nonlocal_checks[0]
 
         for owner, signatures in profile["methods"].items():
             if owner not in classes:

@@ -63,7 +63,7 @@ internal class NativePlayerMoreMenu(private val activity: Activity, private val 
                     val item = if (position - currentOffset < currentMain.size) getItem.invoke(source, position)
                         else makeItem.invoke(source, activity,
                             (footer.get(source) as List<*>)[position - currentOffset - currentMain.size], sourceItem.get(source))
-                    // The native click parameters are (int, View, item) up to 1609 and (item, View, int) in 1611; bind by type.
+                    // The native click parameters are (int, View, item) in 1606-1609 and 1613, (item, View, int) in 1611; bind by type.
                     click.invoke(dispatcher, *bindMoreMenuClickArguments(click.parameterTypes, position, view, item))
                 }
             }
@@ -107,7 +107,7 @@ internal class NativePlayerMoreMenu(private val activity: Activity, private val 
     }
 }
 
-/** Native click parameters are (int, View, item) up to 1609 and (item, View, int) in 1611; bind by type. */
+/** Native click parameters are (int, View, item) in 1606-1609 and 1613, (item, View, int) in 1611; bind by type. */
 internal fun bindMoreMenuClickArguments(types: Array<Class<*>>, position: Int, view: Any?, item: Any?): Array<Any?> =
     types.map { type ->
         when {

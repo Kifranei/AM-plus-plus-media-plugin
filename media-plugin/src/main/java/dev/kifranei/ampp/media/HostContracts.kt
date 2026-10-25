@@ -52,6 +52,7 @@ internal object PluginProfiles {
         document = loaded
         selected = entry
     }
+    val selectedAsset: String? get() = selected?.asset
     fun find(packageName: String, versionName: String, versionCode: Long): PluginProfiles? =
         takeIf { selected?.let { it.packageName == packageName && it.versionName == versionName && it.versionCode == versionCode } == true }
     fun type(name: String): Class<*> = when (name) {
@@ -60,23 +61,57 @@ internal object PluginProfiles {
         "long" -> java.lang.Long.TYPE
         "float" -> java.lang.Float.TYPE
         "boolean" -> java.lang.Boolean.TYPE
-        else -> loader.loadClass(name)
+        // ClassLoader.loadClass cannot resolve array descriptors such as "[Lfoo.Bar;" (self-check reported
+        // editorial-video-url-selector as ClassNotFoundException on every build); Class.forName can.
+        else -> if (name.startsWith("[")) Class.forName(name, false, loader) else loader.loadClass(name)
     }
-    fun method(key: String): Method {
+    fun method(key: String): Method = try { resolveMethod(key) } catch (error: Throwable) {
+        MediaDiag.event("contract", "method '$key' unresolved: ${describeContract("methodContracts", key)} " +
+            "(capability ${MediaDiag.capability ?: "late"})", error, key = "contract|m|$key")
+        throw error
+    }
+    private fun resolveMethod(key: String): Method {
         val contract = document.getJSONObject("indexed").getJSONObject("methodContracts").getJSONObject(key)
         val parameters = contract.getJSONArray("parameters")
         return type(contract.getString("owner")).getDeclaredMethod(contract.getString("name"),
             *(0 until parameters.length()).map { type(parameters.getString(it)) }.toTypedArray()).apply {
-            check(returnType == type(contract.getString("returns")) && Modifier.isStatic(modifiers) == contract.getBoolean("static"))
+            check(returnType == type(contract.getString("returns")) && Modifier.isStatic(modifiers) == contract.getBoolean("static")) {
+                "return/static mismatch"
+            }
             isAccessible = true
         }
     }
-    fun field(key: String): java.lang.reflect.Field {
+    private fun resolveField(key: String): java.lang.reflect.Field {
         val contract = document.getJSONObject("indexed").getJSONObject("fieldContracts").getJSONObject(key)
         return type(contract.getString("owner")).getDeclaredField(contract.getString("name")).apply {
-            check(type == PluginProfiles.type(contract.getString("type")) && !Modifier.isStatic(modifiers))
+            check(type == PluginProfiles.type(contract.getString("type")) && !Modifier.isStatic(modifiers)) { "type/static mismatch" }
             isAccessible = true
         }
+    }
+    /** Human-readable `owner.name(params)` of a contract for diagnostics; never throws. */
+    fun describeContract(section: String, key: String): String = runCatching {
+        val contract = document.getJSONObject("indexed").getJSONObject(section).optJSONObject(key) ?: return "missing in ${selected?.asset}"
+        val params = contract.optJSONArray("parameters")?.let { array -> (0 until array.length()).joinToString(",") { array.getString(it) } }
+        "${contract.optString("owner")}.${contract.optString("name")}" + (params?.let { "($it)" } ?: ":${contract.optString("type")}")
+    }.getOrDefault("?")
+    /** Resolves every method/field contract in the selected profile once; returns the unresolved keys. Never throws. */
+    fun selfCheck(): List<String> {
+        val broken = ArrayList<String>()
+        runCatching {
+            val indexed = document.getJSONObject("indexed")
+            for ((section, resolve) in listOf<Pair<String, (String) -> Any>>("methodContracts" to ::resolveMethod, "fieldContracts" to ::resolveField)) {
+                val keys = indexed.optJSONObject(section)?.keys()?.asSequence()?.toList() ?: continue
+                keys.forEach { key ->
+                    runCatching { resolve(key) }.onFailure { broken += "$section/$key=${describeContract(section, key)} (${it.javaClass.simpleName})" }
+                }
+            }
+        }.onFailure { broken += "selfCheck:${it.javaClass.simpleName}" }
+        return broken
+    }
+    fun field(key: String): java.lang.reflect.Field = try { resolveField(key) } catch (error: Throwable) {
+        MediaDiag.event("contract", "field '$key' unresolved: ${describeContract("fieldContracts", key)} " +
+            "(capability ${MediaDiag.capability ?: "late"})", error, key = "contract|f|$key")
+        throw error
     }
 }
 internal sealed interface TargetCapabilityInstall {

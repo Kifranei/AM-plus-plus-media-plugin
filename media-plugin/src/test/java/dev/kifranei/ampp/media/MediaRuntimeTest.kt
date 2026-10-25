@@ -23,7 +23,8 @@ class MediaRuntimeTest {
         override fun getDataDirectory(): File = error("Not used")
         override fun getCacheDirectory(): File = error("Not used")
         override fun openAsset(path: String): InputStream = error("Not used")
-        override fun log(message: String, error: Throwable?) = Unit
+        val logs = ArrayList<String>()
+        override fun log(message: String, error: Throwable?) { logs += message }
         override fun onClose(action: Runnable) { cleanup += action }
         override fun claimResource(key: String, exclusive: Boolean) = PluginRegistration { }
         override fun getHooks() = object : PluginHooks {
@@ -88,5 +89,55 @@ class MediaRuntimeTest {
         val call = PluginObservation(target, Host(), original, 1, null)
         runtime.observer.after(call)
         assertEquals(1, original[0]); assertEquals(1, call.arguments[0]); scope.close()
+    }
+    @Test fun `a throwing hook callback leaves the host call untouched and never propagates`() {
+        MediaDiag.resetForTest()
+        val runtime = Runtime().also { MediaRuntime.context = it }
+        val scope = PluginScope()
+        val target = Host::class.java.getDeclaredMethod("value", Integer.TYPE)
+        var calls = 0
+        MediaRuntime.hookMethod(target, object : PluginMethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                calls++
+                param.args[0] = 99; param.result = 42   // partial changes before the failure
+                error("broken host contract")
+            }
+        }, scope)
+        scope.activate()
+        val call = PluginCall(target, Host(), arrayOf(1), null, null)
+        runtime.hook.before(call)
+        assertEquals(1, call.arguments[0]); assertNull(call.result); assertFalse(call.isOutcomeChanged)
+        assertTrue(runtime.logs.joinToString(), runtime.logs.any {
+            it.startsWith("media-diag: [hook-failed]") && it.contains("${Host::class.java.name}.value(int)") && it.contains("phase=before")
+        })
+        // After MAX_CALLBACK_FAILURES the hook unregisters itself; the host keeps running natively.
+        repeat(MediaRuntime.MAX_CALLBACK_FAILURES + 2) { runtime.hook.before(PluginCall(target, Host(), arrayOf(1), null, null)) }
+        assertEquals(MediaRuntime.MAX_CALLBACK_FAILURES, calls)
+        assertEquals(1, runtime.registrationsClosed)
+        assertTrue(runtime.logs.any { it.startsWith("media-diag: [hook-disabled]") })
+        scope.close()
+    }
+    @Test fun `a throwing observer is contained and reported`() {
+        MediaDiag.resetForTest()
+        val runtime = Runtime().also { MediaRuntime.context = it }
+        val scope = PluginScope()
+        val target = Host::class.java.getDeclaredMethod("value", Integer.TYPE)
+        MediaDiag.capability = "Test capability"
+        MediaRuntime.observeMethod(target, object : PluginMethodHook() {
+            override fun afterHookedMethod(param: MethodHookParam) { throw NoSuchFieldException("a0") }
+        }, scope)
+        MediaDiag.capability = null
+        scope.activate()
+        runtime.observer.after(PluginObservation(target, Host(), arrayOf<Any>(1), 1, null))
+        assertTrue(runtime.logs.joinToString(), runtime.logs.any { it.contains("[hook-failed] Test capability observe") && it.contains("NoSuchFieldException") })
+        scope.close()
+    }
+    @Test fun `diagnostics deduplicate repeated failures`() {
+        MediaDiag.resetForTest()
+        val runtime = Runtime().also { MediaRuntime.context = it }
+        repeat(10) { MediaDiag.event("contract", "same failure") }
+        MediaDiag.event("contract", "always", key = null)
+        assertEquals(3, runtime.logs.count { it.contains("same failure") })
+        assertEquals(1, runtime.logs.count { it.contains("always") })
     }
 }

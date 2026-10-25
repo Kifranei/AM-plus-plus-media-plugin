@@ -76,7 +76,9 @@ internal class PlayerPageChromeIntegration(
             // in the motion switcher. Check the rendered layer, not that stale card.
             val fullscreen = state.motion?.let { it.isShown && it.alpha > .01f } == true ||
                 (artwork != null && artwork.isShown && root.width > 0 && artwork.width >= root.width - 1)
-            val alpha = if (showHandle) PlayerChromeGeometry.handleAlpha(state.expansion, fullscreen) else 0
+            // Two-pane (w600dp) players already carry AM++'s handle above the artwork column; draw ours only on single-pane.
+            val alpha = if (showHandle) PlayerChromeGeometry.handleAlpha(state.expansion, fullscreen,
+                root.resources.configuration.screenWidthDp) else 0
             state.foreground.update(inset, alpha)
             val radius = if (systemCorners && portrait) SystemWindowGeometry.topCornerRadius(root) else 0f
             val bottomRadius = if (radius > 0f) SystemWindowGeometry.bottomCornerRadius(root) else 0f

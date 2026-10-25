@@ -32,4 +32,18 @@ class PlayerChromeGeometryTest {
         assertEquals(91f, PlayerChromeGeometry.motionRadius(156f, 26f, .5f), 0f)
         assertEquals(26f, PlayerChromeGeometry.motionRadius(156f, 26f, 1f), 0f)
     }
+
+    @Test fun `two-pane tablet players never draw the plugin handle`() {
+        // Tablet landscape (e.g. 1024dp wide) and any w600dp two-pane layout: AM++ already shows its own handle.
+        listOf(600, 840, 1024, 1280).forEach { width ->
+            assertEquals(0, PlayerChromeGeometry.handleAlpha(1f, false, width))
+            assertEquals(0, PlayerChromeGeometry.handleAlpha(.875f, false, width))
+        }
+        // Phone portrait widths keep the existing behaviour.
+        listOf(0, 360, 411, 599).forEach { width ->
+            assertEquals(150, PlayerChromeGeometry.handleAlpha(1f, false, width))
+            assertEquals(75, PlayerChromeGeometry.handleAlpha(.875f, false, width))
+            assertEquals(0, PlayerChromeGeometry.handleAlpha(1f, true, width))
+        }
+    }
 }

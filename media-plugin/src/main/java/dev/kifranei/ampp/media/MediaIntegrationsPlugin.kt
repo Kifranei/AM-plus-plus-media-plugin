@@ -12,6 +12,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** SDK v1 entry; registration, resources and configuration belong to this ZIP. */
+/** Shown in diagnostics; kept in sync with media-plugin/plugin.json by PluginProfileSelectionTest. */
+internal const val PLUGIN_BUILD = "1.3.4/16"
+
 class MediaIntegrationsPlugin : AmppPlugin() {
     private lateinit var runtime: PluginContext
     private lateinit var store: MediaSettingsStore
@@ -23,7 +26,13 @@ class MediaIntegrationsPlugin : AmppPlugin() {
     override fun onLoad(context: PluginContext) {
         runtime = context
         MediaRuntime.context = context
-        PluginProfiles.load(context)
+        val hostBuild = "${context.hostVersionName}/${context.hostVersionCode}"
+        runCatching { PluginProfiles.load(context) }.onFailure {
+            runCatching { MediaDiag.start(context.dataDirectory, hostBuild, "none", PLUGIN_BUILD) }
+            MediaDiag.event("startup", "no usable profile; plugin refuses this host", it, key = null)
+            throw it
+        }
+        MediaDiag.start(runCatching { context.dataDirectory }.getOrNull(), hostBuild, PluginProfiles.selectedAsset ?: "?", PLUGIN_BUILD)
         store = MediaSettingsStore(context.dataDirectory)
         configured = store.read()
         PopupGlassStyle.current = configured.popupGlassStyle
@@ -42,18 +51,30 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         val loader = runtime.hostClassLoader
         val build = TargetBuild(runtime.hostPackageName, runtime.hostVersionName, runtime.hostVersionCode)
         val text = MediaSettingsText.forLanguage(app.resources.configuration.locales[0].language)
+        // Contract self-check off the main thread: one log line lists every profile symbol this host lacks.
+        Thread({
+            val broken = PluginProfiles.selfCheck()
+            MediaDiag.event("self-check", if (broken.isEmpty()) "all profile contracts resolve"
+                else "${broken.size} unresolved contract(s): ${broken.joinToString(", ")}", key = null)
+        }, "AM media plugin self-check").apply { isDaemon = true }.start()
         fun install(name: String, enabled: Boolean, claim: String, action: () -> TargetCapabilityInstall) {
             if (!enabled) { status += "$name: ${text.disabled}"; return }
-            runCatching {
-                val resource = runtime.claimResource(claim, true)
-                val result = try { action() } catch (error: Throwable) { resource.close(); throw error }
-                if (result is TargetCapabilityInstall.Unsupported) resource.close()
-                status += "$name: ${result.message}"
-                runtime.log("$name: ${result.message}", null)
-            }.onFailure {
-                status += "$name: ${it.message ?: text.startupFailed}"
-                runtime.log("$name startup failed", it)
-            }
+            MediaDiag.capability = name
+            try {
+                runCatching {
+                    val resource = runtime.claimResource(claim, true)
+                    val result = try { action() } catch (error: Throwable) { resource.close(); throw error }
+                    if (result is TargetCapabilityInstall.Unsupported) resource.close()
+                    status += "$name: ${result.message}"
+                    runtime.log("$name: ${result.message}", null)
+                    MediaDiag.event("capability", "$name -> ${if (result is TargetCapabilityInstall.Active) "ACTIVE" else "UNSUPPORTED"}: ${result.message}", key = null)
+                }.onFailure {
+                    // Fail open: one capability's install failure never stops the others or the host.
+                    status += "$name: ${it.message ?: text.startupFailed}"
+                    runtime.log("$name startup failed", it)
+                    MediaDiag.event("capability", "$name -> FAILED (skipped, host unchanged)", it, key = null)
+                }
+            } finally { MediaDiag.capability = null }
         }
         install("Player artwork recovery", true, "shared:applemusic-player-artwork-measurement") {
             PlayerArtworkRecovery(build).install()
