@@ -126,6 +126,17 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         install(text.playerAppearance, configured.playerHandle || configured.systemCorners, "shared:applemusic-player-page-chrome") {
             PlayerPageChromeIntegration(build, configured.playerHandle, configured.systemCorners).install()
         }
+        install(text.autoTransition, configured.autoTransition, "shared:applemusic-auto-transition") {
+            AutoTransitionIntegration(build, loader,
+                enabled = { store.read().autoTransition },
+                defaultDurationSec = { store.read().autoTransitionDuration },
+                speedMatch = { store.read().autoTransitionSpeedMatch },
+                animate = { store.read().autoTransitionAnimate },
+            ).install()
+        }
+        runCatching {
+            FileLogger.init(app)
+        }
     }
     override fun onStop() { runtime.log("Media plugin stopped; registered callbacks and provider released", null) }
 
@@ -180,7 +191,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
                 setPadding(0, 0, dp(40), dp(12))
             })
         }
-        option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
+        if (runtime.hostVersionCode < 1613) option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
         option(text.iosControls, draft.iosControls, text.iosControlsDescription) { state, enabled -> state.copy(iosControls = enabled) }
         option(text.sharing, draft.sharing, text.sharingDescription) { state, enabled -> state.copy(sharing = enabled) }
         option(text.playerGlass, draft.playerGlass, text.playerGlassDescription) { state, enabled -> state.copy(playerGlass = enabled) }
@@ -213,6 +224,15 @@ class MediaIntegrationsPlugin : AmppPlugin() {
             state.copy(volumeBar = enabled && !oplus)
         }
         option(text.contentDownloads, draft.contentDownloads, text.contentDownloadsDescription) { state, enabled -> state.copy(contentDownloads = enabled) }
+        // ---- Auto-Transition (AI DJ) ----
+        option(text.autoTransition, draft.autoTransition, text.autoTransitionDescription) { state, enabled -> state.copy(autoTransition = enabled) }
+        layout.addView(TextView(context).apply {
+            this.text = "过渡时长和起点由歌曲分析自动决定，不再固定为某个秒数。"
+            textSize = 13f
+            setPadding(0, dp(4), 0, dp(8))
+        })
+        option(text.autoTransitionSpeedMatch, draft.autoTransitionSpeedMatch) { state, enabled -> state.copy(autoTransitionSpeedMatch = enabled) }
+        option(text.autoTransitionAnimate, draft.autoTransitionAnimate) { state, enabled -> state.copy(autoTransitionAnimate = enabled) }
         saveButton.setOnClickListener { persist() }
         layout.addView(saveButton)
         layout.addView(TextView(context).apply { this.text = text.currentRun + "\n" + status.joinToString("\n"); textSize = 14f; setPadding(0, dp(16), 0, 0) })

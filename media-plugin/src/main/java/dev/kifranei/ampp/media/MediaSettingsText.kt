@@ -41,6 +41,12 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val saved get() = text("已保存，重开 Apple Music 后生效", "Saved. Reopen Apple Music to apply.")
     val saveFailed get() = text("保存失败，点击保存设置重试", "Could not save. Tap Save settings to retry.")
     val currentRun get() = text("本次运行", "Current session")
+    val autoTransition get() = text("自动过渡（AI DJ）", "Auto-Transition (AI DJ)")
+    val autoTransitionDescription get() = text("按歌曲调性/BPM/小节/能量自动选择接歌点与过渡方式；变速只作用于 incoming renderer。",
+        "Intelligent crossfade with tempo/key matching and beat-matched speed adjustment. Experimental; requires Apple Music 7.0.0-beta.")
+    val autoTransitionDuration get() = text("默认淡化时长（秒）", "Default crossfade duration (seconds)")
+    val autoTransitionSpeedMatch get() = text("变速匹配（Beat Match）", "Speed match (Beat Match)")
+    val autoTransitionAnimate get() = text("切歌封面过渡动画", "Cover transition animation")
 
     companion object {
         fun forLanguage(language: String) = MediaSettingsText(language.equals("zh", ignoreCase = true))
