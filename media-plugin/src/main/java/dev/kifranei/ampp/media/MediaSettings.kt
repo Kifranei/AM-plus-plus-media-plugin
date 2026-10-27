@@ -62,7 +62,7 @@ internal data class MediaSettings(
                 json.opt("content_downloads") as? Boolean ?: false,
                 PopupGlassStyle.fromKey(json.opt("popup_glass_style") as? String),
                 json.opt("auto_transition") as? Boolean ?: false,
-                (json.opt("auto_transition_duration") as? Int ?: 8).coerceIn(2, 20),
+                (json.opt("auto_transition_duration") as? Int ?: 12).coerceIn(2, 20),
                 json.opt("auto_transition_speed_match") as? Boolean ?: false,
                 json.opt("auto_transition_animate") as? Boolean ?: true,
             )

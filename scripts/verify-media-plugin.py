@@ -42,7 +42,7 @@ def main():
             assert archive.getinfo("assets/" + asset).file_size > 0, asset
         index = json.loads(archive.read("assets/profiles.json"))
         shipped = [(item["versionName"], item["versionCode"], item["asset"]) for item in index["profiles"]]
-        assert [code for _, code, _ in shipped] == [1606, 1607, 1609, 1611, 1613], shipped
+        assert [code for _, code, _ in shipped] == [1606, 1607, 1609, 1611, 1613, 1614], shipped
         assert {n for n in names if n.startswith("assets/applemusic-")} == {"assets/" + asset for _, _, asset in shipped}
         for name, code, asset in shipped:
             profile = json.loads(archive.read("assets/" + asset))

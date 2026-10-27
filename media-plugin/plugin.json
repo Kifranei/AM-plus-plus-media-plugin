@@ -8,5 +8,5 @@
   "versionCode": 16,
   "entryClass": "dev.kifranei.ampp.media.MediaIntegrationsPlugin",
   "minAndroidApi": 28,
-  "description": "词幕、iOS 媒体控制按钮、歌曲及歌词卡片分享、把手、系统圆角和音量条；液态玻璃播放页界面；下载艺术家静态和动态封面、艺术家特色字标（透明 PNG）、专辑静态封面（最大尺寸 JPEG）、专辑动态封面、原始 TTML、艺术家传记和专辑介绍。支持中英文，适配 Apple Music 7.0.0-beta / 1606、1607、1609、1611、1613。卡片分享观察者支持 DexKit 结构自修复（JSON 优先，DexKit 仅后台建议，失败不影响按钮）。"
+  "description": "词幕、iOS 媒体控制按钮、歌曲及歌词卡片分享、把手、系统圆角和音量条；液态玻璃播放页界面；下载艺术家静态和动态封面、艺术家特色字标（透明 PNG）、专辑静态封面（最大尺寸 JPEG）、专辑动态封面、原始 TTML、艺术家传记和专辑介绍。支持中英文，适配 Apple Music 7.0.0-beta / 1606、1607、1609、1611、1613 及 7.0.0 / 1614。卡片分享观察者支持 DexKit 结构自修复（JSON 优先，DexKit 仅后台建议，失败不影响按钮）。"
 }

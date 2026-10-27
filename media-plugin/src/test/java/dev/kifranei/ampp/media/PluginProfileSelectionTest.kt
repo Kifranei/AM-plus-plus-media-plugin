@@ -13,7 +13,9 @@ import java.lang.reflect.Executable
 class PluginProfileSelectionTest {
     private val assets = File("src/main/assets")
     private val sources = File("src/main/java")
-    private val supported = listOf(1606L, 1607L, 1609L, 1611L, 1613L)
+    private val supported = listOf(1606L, 1607L, 1609L, 1611L, 1613L, 1614L)
+    // 1614 dropped the "-beta" suffix from versionName; selection stays exact on the name each build reports.
+    private fun versionName(code: Long) = if (code >= 1614L) "7.0.0" else "7.0.0-beta"
 
     private fun entries() = ProfileIndex.parse(File(assets, ProfileIndex.ASSET).readText())
     private fun document(entry: ProfileEntry) = JSONObject(File(assets, entry.asset).readText())
@@ -47,11 +49,13 @@ class PluginProfileSelectionTest {
     @Test fun `selection is exact on package version name and code`() {
         val all = entries()
         supported.forEach { code ->
-            assertEquals(code, ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", code)?.versionCode)
+            assertEquals(code, ProfileIndex.select(all, "com.apple.android.music", versionName(code), code)?.versionCode)
         }
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1608))
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1612))
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1614))
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0", 1615))
+        assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0-beta", 1615))
         assertNull(ProfileIndex.select(all, "com.apple.android.music", "7.0.0", 1611))
         assertNull(ProfileIndex.select(all, "com.example.music", "7.0.0-beta", 1611))
     }
@@ -63,10 +67,10 @@ class PluginProfileSelectionTest {
 
     @Test fun `load selects the profile for the host build and find matches only it`() {
         supported.forEach { code ->
-            PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", code, assets))
+            PluginProfiles.load(Host("com.apple.android.music", versionName(code), code, assets))
             assertEquals(code, PluginProfiles.document.getLong("versionCode"))
-            assertNotNull(PluginProfiles.find("com.apple.android.music", "7.0.0-beta", code))
-            assertNull(PluginProfiles.find("com.apple.android.music", "7.0.0-beta", code + 1))
+            assertNotNull(PluginProfiles.find("com.apple.android.music", versionName(code), code))
+            assertNull(PluginProfiles.find("com.apple.android.music", versionName(code), code + 1))
         }
     }
 
@@ -74,7 +78,7 @@ class PluginProfileSelectionTest {
         val error = assertThrows(PluginUnsupportedException::class.java) {
             PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", 1608, assets))
         }
-        supported.forEach { assertTrue(error.message, error.message!!.contains("7.0.0-beta / $it")) }
+        supported.forEach { assertTrue(error.message, error.message!!.contains("${versionName(it)} / $it")) }
         assertTrue(error.message, error.message!!.contains("1608"))
         assertThrows(PluginUnsupportedException::class.java) {
             PluginProfiles.load(Host("com.example.music", "7.0.0-beta", 1611, assets))
@@ -134,7 +138,7 @@ class PluginProfileSelectionTest {
     @Test fun `more menu click arguments bind by type for both parameter orders`() {
         val view = Any(); val item = Any()
         val types = { names: List<Class<*>> -> names.toTypedArray() }
-        // 1606/1607/1609/1613: (int, View, item)
+        // 1606/1607/1609/1613/1614: (int, View, item)
         assertArrayEquals(arrayOf<Any?>(3, view, item), bindMoreMenuClickArguments(
             types(listOf(Integer.TYPE, View::class.java, Any::class.java)), 3, view, item))
         // 1611: (item, View, int)
@@ -148,7 +152,7 @@ class PluginProfileSelectionTest {
                 .getJSONObject("more-action-click").getJSONArray("parameters")
             val list = (0 until params.length()).map(params::getString)
             assertEquals(entry.asset, setOf("int", "android.view.View", "com.apple.android.music.model.CollectionItemView"), list.toSet())
-            // 1611 is the only build with (item, View, int); 1613 returned to (int, View, item).
+            // 1611 is the only build with (item, View, int); 1613 and 1614 use (int, View, item).
             val expected = if (entry.versionCode == 1611L) listOf("com.apple.android.music.model.CollectionItemView", "android.view.View", "int")
                 else listOf("int", "android.view.View", "com.apple.android.music.model.CollectionItemView")
             assertEquals(entry.asset, expected, list)

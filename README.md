@@ -1,6 +1,6 @@
 # AM 媒体增强插件
 
-用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606、1607、1609、1611、1613**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供八个功能开关，中英文设置跟随界面语言。
+用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606、1607、1609、1611、1613** 及 **7.0.0 / 1614**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供八个功能开关，中英文设置跟随界面语言。
 
 下载：[最新发布](https://github.com/Kifranei/AM-plus-plus-media-plugin/releases/latest)。
 
@@ -32,6 +32,10 @@
 「解除分享白名单限制」同时控制歌曲卡片与歌词卡片。旧版歌词分享开关自动迁移，明确保存的新开关值优先；新增图片入口位于原生可分享应用横栏，原有拷贝链接和更多选项保留。
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
+
+v1.3.4 / 16 同时新增 Apple Music 7.0.0 / 1614 profile `applemusic-1614.json`（1614 的 versionName 为 `7.0.0`，不再带 `-beta`；profile 仍按包名 + 版本名 + 版本号精确匹配）。由 1613 逐项按 1614 DEX 重新核对：引用的类均未改名，仅 `utils.Q0$a`→`R0$a`（CJK 判定）；RecyclerView.Adapter 覆写方法整体后移一位：`player.x` 的 `V`→`W`（CJK 逐字动画）、`k`→`l`、`m`→`n`、`n0`→`o0`，「更多」菜单适配器 `Z6.d.m`→`n`、`Z6.b.l`→`m`，`ea.a` 的 `w`→`x`、`k`→`l`；其余字段、方法与资源名不变，并用 1614 APK 校验全部符号与资源名。
+
+v1.3.4 / 16 also adds the Apple Music 7.0.0 / 1614 profile `applemusic-1614.json` (1614 reports versionName `7.0.0` without `-beta`; selection is still exact on package + version name + version code). Re-resolved from 1613 against the 1614 DEX: no referenced class was renamed except `utils.Q0$a` → `R0$a` (CJK predicate); RecyclerView.Adapter overrides shifted by one letter: `player.x` `V`→`W` (CJK karaoke animation), `k`→`l`, `m`→`n`, `n0`→`o0`; More-menu adapter `Z6.d.m`→`n`, `Z6.b.l`→`m`; `ea.a` `w`→`x`, `k`→`l`. All other fields, methods and resource names are unchanged, and every symbol and resource name is verified against the 1614 APK.
 
 v1.3.4 / 16 适配 Apple Music 7.0.0-beta / 1613，并修复 1613 上词幕状态栏歌词无法启动（1613 的歌词指针字段由 `g1` 改为 `f1`，旧名称仍存在但类型为 int）；平板横屏双栏播放页不再显示重复的把手（宽度 ≥ 600dp 时由宿主/AM++ 提供把手）。profile 校验脚本现按精确类型／签名检查词幕、音质对话框和卡片分享的命名成员。新增 Apple Music 7.0.0-beta / 1613 profile `applemusic-1613.json`，由 1611 逐项按 1613 DEX 重新映射（39 个类改名（含 a7.d），如 `player.y`→`x`、`fragment.m`→`l`、`fragment.e`→`d`、`androidx.fragment.app.l`→`n`；字段普遍前移一位，如 `PlayerMainFragment.b0`→`a0`、`BottomSheetBehavior.o0`→`n0`；卡片分享观察者 `commerce.activities.m`→`a7.d`；「更多」菜单点击方法改回 `z(int, View, item)`），并用 1613 APK 校验全部符号与资源名。Hook 改为严格失败开放：回调在暂存副本上运行，抛出异常时宿主调用保持原样、不再让 AM++ 停用整个插件，同一 Hook 失败 3 次后仅注销该 Hook。新增测试诊断：所有诊断行以 `media-diag:` 开头，写入 LSPosed 日志、logcat 标签 `AMPP-media` 及插件数据目录 `media-diag.log`，包括启动时的宿主版本／profile、每个功能的 ACTIVE／UNSUPPORTED／FAILED、启动自检列出的全部无法解析的合约（类.方法(参数) 或 类.字段:类型），以及运行中失败的 Hook 成员。测试者提交日志时请过滤 `media-diag:`。
 

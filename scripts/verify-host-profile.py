@@ -357,6 +357,23 @@ def main():
                 item = ldesc(card['itemClass'])
                 require(declared(card['viewModelClass'], f'setShareItemDetails({item}{item}[Ljava/lang/String;Ljava/lang/String;)V'),
                         f'cardSharing {card["viewModelClass"]}.setShareItemDetails missing')
+                # Day-mode card renderer: the view model's render method must itself construct the sticker
+                # view whose (Context, AttributeSet, int) constructor the plugin rewrites, and that sticker must
+                # be the only ViewGroup with AM's sticker shape (getLayoutRes + getBitmapName).
+                model, sticker = card['viewModelClass'], card['stickerViewClass']
+                require(len(method_named(model, card['rendererMethod'], '')) == 1,
+                        f'cardSharing.rendererMethod {model}.{card["rendererMethod"]}() missing')
+                require(method_named(model, card['rendererOptionGetter'], '') == [card['rendererOptionGetter'] + '()' + item],
+                        f'cardSharing.rendererOptionGetter {model}.{card["rendererOptionGetter"]}() is not {item}')
+                require(classes.get(ldesc(sticker), {}).get('super') == 'Landroid/view/ViewGroup;',
+                        f'cardSharing.stickerViewClass {sticker} is not a ViewGroup')
+                require(declared(sticker, '<init>(Landroid/content/Context;Landroid/util/AttributeSet;I)V'),
+                        f'cardSharing.stickerViewClass {sticker}(Context, AttributeSet, int) constructor missing')
+                require(ldesc(sticker) in classes.get(ldesc(model), {}).get('new_instances', set()),
+                        f'cardSharing {model} never constructs stickerViewClass {sticker}')
+                shaped = sorted(name for name, info in classes.items() if info.get('super') == 'Landroid/view/ViewGroup;'
+                                and {'getLayoutRes()I', 'getBitmapName()Ljava/lang/String;'} <= info.get('methods', set()))
+                require(shaped == [ldesc(sticker)], f'cardSharing sticker-shaped ViewGroups {shaped} != profile {[ldesc(sticker)]}')
             for section, keys in (('audioOutput', ('buttonClass',)), ('playerMoreMenu', ('dialogClass',)),
                                   ('playerDialogs', ('confirmationFragmentClass', 'sleepFragmentClass')),
                                   ('contentDownloads', ('artistFragmentClass', 'artistModelClass', 'albumFragmentClass',
