@@ -72,7 +72,7 @@ def main():
         forbidden = ("Ldev/amenhancer/", "Lcom/apple/android/music/", "Lio/github/libxposed/",
                      "Lcom/kyant/backdrop/", "Landroidx/compose/")
         assert not any(name.startswith(forbidden) for name in definitions), "Private module, host or SDK code bundled"
-        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "CardSharingDexResolver", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "HostBackdropCompat", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "ProfileIndex", "ProfileEntry")
+        required = ("LyriconIntegration", "IosMediaControls", "CardSharingIntegration", "CardSharingFeature", "CardSharingDexResolver", "AudioQualityIntegration", "NativeShareImage", "NativeShareImageComposer", "SharedCardAction", "SharedCardKind", "PluginGlassHostView", "PlayerPageChromeIntegration", "PlayerMoreMenuIntegration", "NativePlayerMoreMenu", "IosPlayerMoreMenuView", "PlayerMenuLayout", "MenuSurfaceCleanup", "PlayerDialogsIntegration", "PlayerVolumeIntegration", "IosVolumeSliderView", "PlayerVolumeGeometry", "PlayerVolumeControls", "PlayerVolumeSpacing", "PlayerVolumeMotion", "PlayerVolumePosition", "PlayerVolumePlacement", "PlayerVolumeRegion", "PlayerVolumeSpace", "PlayerVolumeMinimum", "PlayerVolumeMeasurement", "PlayerVolumeSpaceTarget", "PlayerVolumeLayoutState", "PlayerVolumeHoldColumn", "PlayerVolumePanePreparation", "PlayerVolumeDrawSettlement", "IosVolumeIcons", "PlayerArtworkRecovery", "HostBackdropCompat", "PlayerBackgroundRecovery", "PlayerViewBootstrap", "ContentDownloadsIntegration", "ContentDownloadArtistAnchor", "ContentDownloadCapture", "ContentExportStorage", "MotionArtworkDownload", "MotionArtworkRemux", "PlayerContentDownloadsIntegration", "ProfileIndex", "ProfileEntry", "SystemLyricDeliveryIntegration", "MeizuTickerBridge", "DesktopLyricOverlay", "KaraokeLyricView", "MediaNotificationLyricBridge", "SuperLyricBridge", "LyricGetterBridge", "LiveLyricIndexer", "LiveLyricLine", "LiveLyricWord", "LiveLyricSongMeta")
         assert all("Ldev/kifranei/ampp/media/" + name + ";" in definitions for name in required)
         for name in ("BluetoothOutputName", "AudioOutputDeviceLabel", "AudioOutputLabelPlacement", "AudioOutputButtonVisibility", "IosDeviceOutputDrawable", "OutputDeviceIcon", "BluetoothOutputState",
                      "SystemAudioOutput", "AudioOutputRouting", "AudioOutputRoute", "AudioOutputKind", "AudioOutputState"):
@@ -87,11 +87,11 @@ def main():
         ):
             assert hashlib.sha256(archive.read('assets/' + asset)).hexdigest() == digest, f'Changed Flamingo vector: {asset}'
         fields = definitions['Ldev/kifranei/ampp/media/MediaSettings;']['fields']
-        for name in ('lyricon', 'iosControls', 'sharing', 'playerGlass', 'playerHandle', 'systemCorners', 'volumeBar', 'contentDownloads'):
+        for name in ('lyricon', 'iosControls', 'sharing', 'playerGlass', 'playerHandle', 'systemCorners', 'volumeBar', 'contentDownloads', 'meizuTicker', 'desktopLyrics', 'mediaNotificationLyrics', 'superLyric', 'lyricGetter'):
             assert fields.get(name) == 'Z', f'Missing boolean setting: {name}'
         assert not {'lyricsSharing', 'qualityGlass', 'moreGlass', 'confirmationGlass', 'sleepGlass'} & fields.keys()
         assert 'Ldev/kifranei/ampp/media/MediaSettingsText;' in definitions
-    print(f"PASS: SDK v1 media ZIP; {len(definitions)} DEX definitions; eight settings; no private module/SDK copies")
+    print(f"PASS: SDK v1 media ZIP; {len(definitions)} DEX definitions; media settings; no private module/SDK copies")
 
 
 if __name__ == "__main__":

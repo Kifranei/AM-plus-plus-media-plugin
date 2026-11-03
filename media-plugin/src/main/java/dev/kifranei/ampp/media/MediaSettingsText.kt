@@ -47,6 +47,27 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val autoTransitionDuration get() = text("默认淡化时长（秒）", "Default crossfade duration (seconds)")
     val autoTransitionSpeedMatch get() = text("变速匹配（Beat Match）", "Speed match (Beat Match)")
     val autoTransitionAnimate get() = text("切歌封面过渡动画", "Cover transition animation")
+    val systemLyricDelivery get() = text("系统歌词投递", "System lyric delivery")
+    val meizuTicker get() = text("状态栏歌词（魅族 Ticker）", "Status-bar lyrics (Meizu Ticker)")
+    val meizuTickerDescription get() = text(
+        "通过 Flyme Ticker 通知在魅族状态栏显示当前歌词；不依赖词幕。默认关闭。",
+        "Show the current lyric in the Flyme status bar via ticker notifications. Independent of Lyricon. Off by default.")
+    val desktopLyrics get() = text("桌面歌词（逐字）", "Desktop lyrics (word-by-word)")
+    val desktopLyricsDescription get() = text(
+        "系统悬浮窗显示当前歌词；有逐字时间轴时高亮到字。需为 Apple Music 开启「显示在其他应用上层」。默认关闭。",
+        "Floating overlay for the current lyric with word-by-word highlight when timings exist. Requires “Display over other apps” for Apple Music. Off by default.")
+    val mediaNotificationLyrics get() = text("媒体通知歌词", "Media notification lyrics")
+    val mediaNotificationLyricsDescription get() = text(
+        "将当前歌词写入媒体通知标题，供蓝牙设备、车机或系统媒体中心显示。默认关闭。",
+        "Write the current lyric into the media notification title for Bluetooth devices, car head units, or media centers. Off by default.")
+    val superLyric get() = text("SuperLyric 投递", "SuperLyric delivery")
+    val superLyricDescription get() = text(
+        "向 SuperLyric 模块发送当前歌词（含逐字，若可用）。未安装模块时自动跳过。默认关闭。",
+        "Publish the current lyric to the SuperLyric module (with word timings when available). Skipped if the module is absent. Off by default.")
+    val lyricGetter get() = text("Lyric Getter 投递", "Lyric Getter delivery")
+    val lyricGetterDescription get() = text(
+        "向 Lyric Getter 发送当前歌词。未安装模块时自动跳过。默认关闭。",
+        "Publish the current lyric to Lyric Getter. Skipped if the module is absent. Off by default.")
 
     companion object {
         fun forLanguage(language: String) = MediaSettingsText(language.equals("zh", ignoreCase = true))
