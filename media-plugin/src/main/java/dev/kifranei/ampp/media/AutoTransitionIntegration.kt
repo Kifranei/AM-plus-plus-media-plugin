@@ -356,12 +356,14 @@ internal class AutoTransitionIntegration(
                                 val oldCover = lastCoverDrawable
                                 val newCover = pendingNewCover
                                 flog("cover: maybeStart true, coverView=${v != null} lastCover=${oldCover != null} pendingNew=${newCover != null}")
-                                if (v != null && oldCover != null && newCover != null) {
-                                    waitingForCover = false
-                                    triggerCoverDissolve(v, oldCover, newCover)
-                                } else {
-                                    waitingForCover = true
-                                    flog("cover: crossfade 已开始但封面未切换，等待 setImageDrawable 后补触发")
+                                if (true) {
+                                    if (v != null && oldCover != null && newCover != null) {
+                                        waitingForCover = false
+                                        triggerCoverDissolve(v, oldCover, newCover)
+                                    } else {
+                                        waitingForCover = true
+                                        flog("cover: crossfade 已开始但封面未切换，等待 setImageDrawable 后补触发")
+                                    }
                                 }
                             }
                             // true→false 表示 crossfade 结束
@@ -1301,6 +1303,7 @@ internal class AutoTransitionIntegration(
      * 两种方式都用 runCatching 包裹，失败不影响正常播放。
      */
     private fun skipNextSongIntro(fadeInHolder: Any?, skipSec: Float) {
+
         if (fadeInHolder == null || skipSec <= 1f) return
         val skipUs = (skipSec * 1_000_000L).toLong()
         runCatching {
