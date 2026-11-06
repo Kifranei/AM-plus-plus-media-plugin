@@ -264,10 +264,14 @@ internal object AutoTransitionProgressBar {
 
     private fun applyBarGlow(bar: View) {
         runCatching {
+            if (bar.width <= 0 || bar.height <= 0) {
+                bar.post { applyBarGlow(bar) }
+                return@runCatching
+            }
             val root = bar.rootView as? ViewGroup ?: return@runCatching
             glowOverlays[bar]?.let { root.removeView(it) }
-            val spill = (4f * bar.resources.displayMetrics.density).toInt().coerceAtLeast(3)
-            val overlay = GlowOverlayView(bar.context).apply {
+            val spill = (10f * bar.resources.displayMetrics.density).toInt().coerceAtLeast(8)
+            val overlay = GlowOverlayView(bar.context, bar).apply {
                 layoutParams = ViewGroup.LayoutParams(bar.width + spill * 2, bar.height + spill * 2)
                 setLayerType(View.LAYER_TYPE_SOFTWARE, null)
             }
@@ -317,22 +321,55 @@ internal object AutoTransitionProgressBar {
         for ((v, vis) in pendingVisibility) runCatching { v.visibility = vis }
         pendingVisibility.clear()
     }
-    private class GlowOverlayView(context: android.content.Context) : View(context) {
-        val spill: Int = (4f * resources.displayMetrics.density).toInt().coerceAtLeast(3)
-        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private class GlowOverlayView(context: android.content.Context, private val bar: View) : View(context) {
+        val spill: Int = (10f * resources.displayMetrics.density).toInt().coerceAtLeast(8)
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        private val bitmap: android.graphics.Bitmap? = runCatching {
+            android.graphics.Bitmap.createBitmap(bar.width.coerceAtLeast(1), bar.height.coerceAtLeast(1),
+                android.graphics.Bitmap.Config.ARGB_8888)
+        }.getOrNull()
+
+        private fun sampleColor(bmp: android.graphics.Bitmap): Int {
+            val y = (bmp.height / 2).coerceIn(0, bmp.height - 1)
+            for (px in 0 until bmp.width step 3) {
+                val c = bmp.getPixel(px, y)
+                if (Color.alpha(c) >= 24) {
+                    return Color.rgb(Color.red(c), Color.green(c), Color.blue(c))
+                }
+            }
+            return Color.WHITE
+        }
 
         override fun onDraw(canvas: Canvas) {
+            val bmp = bitmap ?: return
+            bmp.eraseColor(Color.TRANSPARENT)
+            bar.draw(Canvas(bmp))
+            val d = resources.displayMetrics.density
+            val frac = runCatching {
+                val p = bar as? android.widget.ProgressBar ?: return@runCatching 1f
+                p.progress.toFloat() / p.max.coerceAtLeast(1).toFloat()
+            }.getOrDefault(1f).coerceIn(0f, 1f)
+            if (frac <= 0.005f) return
+            val color = sampleColor(bmp)
             val w = width.toFloat(); val h = height.toFloat()
-            val bar = android.graphics.RectF(spill.toFloat(), spill.toFloat(), w - spill, h - spill)
-            val r = bar.height() / 2f
-            // 不裁内框，整块柔光叠在条上：白条不变，灰轨轻微提亮，外缘自然衰减，不会出现“框”。
-            paint.alpha = 95
-            paint.maskFilter = android.graphics.BlurMaskFilter(spill * 0.9f, android.graphics.BlurMaskFilter.Blur.NORMAL)
-            canvas.drawRoundRect(bar, r, r, paint)
-            paint.alpha = 55
-            paint.maskFilter = android.graphics.BlurMaskFilter(spill * 0.4f, android.graphics.BlurMaskFilter.Blur.NORMAL)
-            canvas.drawRoundRect(bar, r, r, paint)
+            val rect = android.graphics.RectF(spill.toFloat(), spill.toFloat(), w - spill, h - spill)
+            val cy = h / 2f
+            val left = spill.toFloat()
+            val right = spill + (w - spill * 2) * frac
+            // 沿已播放段画一条发光横线：不做矩形裁剪，避免起点出现竖着的白色胶囊。
+            paint.style = Paint.Style.STROKE
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.color = color
+            paint.strokeWidth = rect.height() * 0.95f
+            paint.alpha = 110
+            paint.maskFilter = android.graphics.BlurMaskFilter(3.0f * d, android.graphics.BlurMaskFilter.Blur.NORMAL)
+            canvas.drawLine(left, cy, right, cy, paint)
+            paint.strokeWidth = rect.height() * 0.55f
+            paint.alpha = 160
+            paint.maskFilter = android.graphics.BlurMaskFilter(1.4f * d, android.graphics.BlurMaskFilter.Blur.NORMAL)
+            canvas.drawLine(left, cy, right, cy, paint)
             paint.maskFilter = null
+            paint.strokeCap = Paint.Cap.BUTT
         }
     }
 }
