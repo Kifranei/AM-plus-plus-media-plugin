@@ -41,6 +41,33 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val saved get() = text("已保存，重开 Apple Music 后生效", "Saved. Reopen Apple Music to apply.")
     val saveFailed get() = text("保存失败，点击保存设置重试", "Could not save. Tap Save settings to retry.")
     val currentRun get() = text("本次运行", "Current session")
+    val autoTransition get() = text("自动过渡（AI DJ）", "Auto-Transition (AI DJ)")
+    val autoTransitionDescription get() = text("按歌曲调性/BPM/小节/能量自动选择接歌点与过渡方式；变速只作用于 incoming renderer。",
+        "Intelligent crossfade with tempo/key matching and beat-matched speed adjustment. Experimental; requires Apple Music 7.0.0-beta.")
+    val autoTransitionDuration get() = text("默认淡化时长（秒）", "Default crossfade duration (seconds)")
+    val autoTransitionSpeedMatch get() = text("变速匹配（Beat Match）", "Speed match (Beat Match)")
+    val autoTransitionAnimate get() = text("切歌封面过渡动画", "Cover transition animation")
+    val systemLyricDelivery get() = text("系统歌词投递", "System lyric delivery")
+    val meizuTicker get() = text("状态栏歌词（魅族 Ticker）", "Status-bar lyrics (Meizu Ticker)")
+    val meizuTickerDescription get() = text(
+        "通过 Flyme Ticker 通知在魅族状态栏显示当前歌词；不依赖词幕。默认关闭。",
+        "Show the current lyric in the Flyme status bar via ticker notifications. Independent of Lyricon. Off by default.")
+    val desktopLyrics get() = text("桌面歌词（逐字）", "Desktop lyrics (word-by-word)")
+    val desktopLyricsDescription get() = text(
+        "系统悬浮窗显示当前歌词；有逐字时间轴时高亮到字。需为 Apple Music 开启「显示在其他应用上层」。默认关闭。",
+        "Floating overlay for the current lyric with word-by-word highlight when timings exist. Requires “Display over other apps” for Apple Music. Off by default.")
+    val mediaNotificationLyrics get() = text("媒体通知歌词", "Media notification lyrics")
+    val mediaNotificationLyricsDescription get() = text(
+        "将当前歌词写入媒体通知标题，供蓝牙设备、车机或系统媒体中心显示。默认关闭。",
+        "Write the current lyric into the media notification title for Bluetooth devices, car head units, or media centers. Off by default.")
+    val superLyric get() = text("SuperLyric 投递", "SuperLyric delivery")
+    val superLyricDescription get() = text(
+        "向 SuperLyric 模块发送当前歌词（含逐字，若可用）。未安装模块时自动跳过。默认关闭。",
+        "Publish the current lyric to the SuperLyric module (with word timings when available). Skipped if the module is absent. Off by default.")
+    val lyricGetter get() = text("Lyric Getter 投递", "Lyric Getter delivery")
+    val lyricGetterDescription get() = text(
+        "向 Lyric Getter 发送当前歌词。未安装模块时自动跳过。默认关闭。",
+        "Publish the current lyric to Lyric Getter. Skipped if the module is absent. Off by default.")
 
     companion object {
         fun forLanguage(language: String) = MediaSettingsText(language.equals("zh", ignoreCase = true))

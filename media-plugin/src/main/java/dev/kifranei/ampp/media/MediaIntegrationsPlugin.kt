@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** SDK v1 entry; registration, resources and configuration belong to this ZIP. */
 /** Shown in diagnostics; kept in sync with media-plugin/plugin.json by PluginProfileSelectionTest. */
-internal const val PLUGIN_BUILD = "1.3.3/15"
+internal const val PLUGIN_BUILD = "1.3.5/17"
 
 class MediaIntegrationsPlugin : AmppPlugin() {
     private lateinit var runtime: PluginContext
@@ -39,10 +39,12 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         context.onClose { writer.shutdown() }
         // Resolve contracts before any capability registers; all host knowledge stays in this ZIP.
         // A profile without these contracts only loses Lyricon (its install reports Unsupported); never the whole plugin.
-        if (configured.lyricon) runCatching {
+        val needsLyricContracts = configured.lyricon || configured.meizuTicker || configured.desktopLyrics ||
+            configured.mediaNotificationLyrics || configured.superLyric || configured.lyricGetter
+        if (needsLyricContracts) runCatching {
             listOf("lyrics-install-method", "player-metadata-publish-method", "metadata-to-playback-item-method")
                 .forEach(PluginProfiles::method)
-        }.onFailure { context.log("Lyricon contracts unavailable for ${context.hostVersionName} (${context.hostVersionCode})", it) }
+        }.onFailure { context.log("Lyric contracts unavailable for ${context.hostVersionName} (${context.hostVersionCode})", it) }
         context.log("SDK v1 media plugin prepared for ${context.hostVersionName} (${context.hostVersionCode})", null)
     }
     override fun onStart() {
@@ -98,6 +100,16 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         install(text.lyricon, configured.lyricon, "shared:applemusic-lyricon-provider") {
             LyriconIntegration(app, loader, build, CurrentSongCache()).install()
         }
+        val systemLyricOptions = SystemLyricDeliveryIntegration.Options(
+            meizuTicker = configured.meizuTicker,
+            desktopLyrics = configured.desktopLyrics,
+            mediaNotificationLyrics = configured.mediaNotificationLyrics,
+            superLyric = configured.superLyric,
+            lyricGetter = configured.lyricGetter,
+        )
+        install(text.systemLyricDelivery, systemLyricOptions.anyEnabled, "shared:applemusic-system-lyric-delivery") {
+            SystemLyricDeliveryIntegration(app, loader, build, systemLyricOptions).install()
+        }
         install(text.iosControls, configured.iosControls, "shared:applemusic-player-output-button") {
             IosMediaControls(app, loader, build).install()
         }
@@ -125,6 +137,17 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         }
         install(text.playerAppearance, configured.playerHandle || configured.systemCorners, "shared:applemusic-player-page-chrome") {
             PlayerPageChromeIntegration(build, configured.playerHandle, configured.systemCorners).install()
+        }
+        install(text.autoTransition, configured.autoTransition, "shared:applemusic-auto-transition") {
+            AutoTransitionIntegration(build, loader,
+                enabled = { store.read().autoTransition },
+                defaultDurationSec = { store.read().autoTransitionDuration },
+                speedMatch = { store.read().autoTransitionSpeedMatch },
+                animate = { store.read().autoTransitionAnimate },
+            ).install()
+        }
+        runCatching {
+            FileLogger.init(app)
         }
     }
     override fun onStop() { runtime.log("Media plugin stopped; registered callbacks and provider released", null) }
@@ -180,7 +203,14 @@ class MediaIntegrationsPlugin : AmppPlugin() {
                 setPadding(0, 0, dp(40), dp(12))
             })
         }
-        option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
+        if (runtime.hostVersionCode < 1613) option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
+        option(text.meizuTicker, draft.meizuTicker, text.meizuTickerDescription) { state, enabled -> state.copy(meizuTicker = enabled) }
+        option(text.desktopLyrics, draft.desktopLyrics, text.desktopLyricsDescription) { state, enabled -> state.copy(desktopLyrics = enabled) }
+        option(text.mediaNotificationLyrics, draft.mediaNotificationLyrics, text.mediaNotificationLyricsDescription) { state, enabled ->
+            state.copy(mediaNotificationLyrics = enabled)
+        }
+        option(text.superLyric, draft.superLyric, text.superLyricDescription) { state, enabled -> state.copy(superLyric = enabled) }
+        option(text.lyricGetter, draft.lyricGetter, text.lyricGetterDescription) { state, enabled -> state.copy(lyricGetter = enabled) }
         option(text.iosControls, draft.iosControls, text.iosControlsDescription) { state, enabled -> state.copy(iosControls = enabled) }
         option(text.sharing, draft.sharing, text.sharingDescription) { state, enabled -> state.copy(sharing = enabled) }
         option(text.playerGlass, draft.playerGlass, text.playerGlassDescription) { state, enabled -> state.copy(playerGlass = enabled) }
@@ -213,6 +243,15 @@ class MediaIntegrationsPlugin : AmppPlugin() {
             state.copy(volumeBar = enabled && !oplus)
         }
         option(text.contentDownloads, draft.contentDownloads, text.contentDownloadsDescription) { state, enabled -> state.copy(contentDownloads = enabled) }
+        // ---- Auto-Transition (AI DJ) ----
+        option(text.autoTransition, draft.autoTransition, text.autoTransitionDescription) { state, enabled -> state.copy(autoTransition = enabled) }
+        layout.addView(TextView(context).apply {
+            this.text = "过渡时长和起点由歌曲分析自动决定，不再固定为某个秒数。"
+            textSize = 13f
+            setPadding(0, dp(4), 0, dp(8))
+        })
+        option(text.autoTransitionSpeedMatch, draft.autoTransitionSpeedMatch) { state, enabled -> state.copy(autoTransitionSpeedMatch = enabled) }
+        option(text.autoTransitionAnimate, draft.autoTransitionAnimate) { state, enabled -> state.copy(autoTransitionAnimate = enabled) }
         saveButton.setOnClickListener { persist() }
         layout.addView(saveButton)
         layout.addView(TextView(context).apply { this.text = text.currentRun + "\n" + status.joinToString("\n"); textSize = 14f; setPadding(0, dp(16), 0, 0) })

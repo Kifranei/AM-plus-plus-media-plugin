@@ -9,10 +9,13 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import java.io.File
 import java.lang.reflect.Executable
+import java.util.Collections
+import java.util.WeakHashMap
 
 /** Extend the native picker and deliver its original image through Android's share sheet. */
 internal class CardSharingIntegration(
@@ -85,6 +88,8 @@ internal class CardSharingIntegration(
                 }
             })
         }
+        // Template descriptors this plugin substituted; the renderer is pinned to day mode only for them.
+        val renderTemplates: MutableSet<Any> = Collections.synchronizedSet(Collections.newSetFromMap(WeakHashMap()))
         try {
             trackCreation(viewCreated) { SharedCardKind.LYRICS }
             trackCreation(PluginProfiles.method("song-sharing-create-view")) { owner ->
@@ -122,7 +127,9 @@ internal class CardSharingIntegration(
                     // AM chooses its social card template from this descriptor. Keep the
                     // progress fragment's original custom action for delivery, and replace
                     // only the renderer's input. No platform app is installed or launched.
-                    param.args[1] = optionConstructor.newInstance(15000L, "instagram", "", "com.instagram.android", "")
+                    val template = optionConstructor.newInstance(15000L, "instagram", "", "com.instagram.android", "")
+                    param.args[1] = template
+                    renderTemplates.add(template)
                     MediaRuntime.log("card_sharing: native ${action.kind.filenameTag} card generation requested")
                 }
             })
@@ -171,8 +178,60 @@ internal class CardSharingIntegration(
                     }
                 }
             })
+            // Optional: a host without these contracts keeps sharing/saving, only with the native night colours.
+            val dayMode = runCatching { installDayModeRenderer(names, viewModel, scope, renderTemplates, ::hook) }
+                .onFailure { MediaDiag.event("card-sharing", "day-mode card renderer unavailable; cards follow system night mode",
+                    it, key = "card-sharing|day-mode-install") }
+                .isSuccess
             scope.activate()
-            return TargetCapabilityInstall.Active("Native Apple Music song and lyrics cards support system sharing and saving")
+            return TargetCapabilityInstall.Active("Native Apple Music song and lyrics cards support system sharing and saving" +
+                if (dayMode) "" else " (night-mode card colours not pinned)")
         } catch (error: Throwable) { scope.close(); throw error }
+    }
+
+    /**
+     * AM's `ShareSheetViewModel.subscribeToSharePlatformIntent()` constructs the sticker views (profile
+     * `stickerViewClass`, e.g. 1613 `common.views.m0`, and its lyrics/background subclasses) from the
+     * Application context, so the off-screen card resolves its resources with the system night mode. While
+     * that method renders a card for one of this plugin's actions, the sticker constructor receives a
+     * NIGHT_NO wrapper of its context instead; native Instagram/Facebook/Snapchat shares are untouched.
+     */
+    private fun installDayModeRenderer(
+        names: org.json.JSONObject,
+        viewModel: Class<*>,
+        scope: PluginScope,
+        templates: Set<Any>,
+        hook: (Executable, PluginMethodHook) -> Unit,
+    ) {
+        val sticker = loader.loadClass(names.getString("stickerViewClass"))
+        check(ViewGroup::class.java.isAssignableFrom(sticker)) { "${sticker.name} is not a ViewGroup" }
+        val render = viewModel.getDeclaredMethod(names.getString("rendererMethod"))
+        val option = viewModel.getMethod(names.getString("rendererOptionGetter"))
+        val constructor = sticker.getDeclaredConstructor(Context::class.java, android.util.AttributeSet::class.java, Integer.TYPE)
+        val window = CardRenderWindow()
+        scope.onClose(window::clear)
+        hook(render, object : PluginMethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                // getShareOptionItem() throws while the lateinit descriptor is unset; that render is not ours.
+                val target = runCatching { option.invoke(param.thisObject) }.getOrNull()
+                window.enter(target != null && target in templates)
+            }
+            override fun afterHookedMethod(param: MethodHookParam) = window.exit()
+        })
+        hook(constructor, object : PluginMethodHook() {
+            override fun beforeHookedMethod(param: MethodHookParam) {
+                if (!window.isActive) return
+                val base = param.args.firstOrNull() as? Context ?: return
+                if (!CardRenderDayMode.isNight(base.resources.configuration.uiMode)) return
+                param.args[0] = CardRenderDayMode.context(base)
+                MediaDiag.event("card-sharing", "${param.thisObject?.javaClass?.name ?: sticker.name} rendered with day configuration " +
+                    "(system night mode)", key = "card-sharing|day-mode|${param.thisObject?.javaClass?.name}")
+            }
+            override fun afterHookedMethod(param: MethodHookParam) {
+                if (!window.isActive || param.throwable != null) return
+                (param.thisObject as? View)?.let(CardRenderDayMode::disallowForceDark)
+            }
+        })
+        MediaRuntime.log("card_sharing: day-mode card renderer on ${sticker.name} via ${viewModel.simpleName}.${render.name}")
     }
 }

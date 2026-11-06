@@ -27,6 +27,22 @@ internal data class MediaSettings(
     val volumeBar: Boolean = false,
     val contentDownloads: Boolean = false,
     val popupGlassStyle: PopupGlassStyle = PopupGlassStyle.default,
+    val autoTransition: Boolean = false,
+    val autoTransitionDuration: Int = 12,
+    // 变速匹配（Beat Match）默认关闭：setPlaybackParameters 是对整个 ExoPlayer 生效的，
+    // crossfade 期间当前歌也被变速，切换瞬间 AudioTrack 重建会导致"音乐被切断+纯杂音"（用户实测）。
+    val autoTransitionSpeedMatch: Boolean = false,
+    val autoTransitionAnimate: Boolean = true,
+    /** Flyme / Meizu status-bar ticker lyrics (Halcyon TickerBridge). Default off. */
+    val meizuTicker: Boolean = false,
+    /** Desktop / overlay lyrics with word-by-word karaoke when timings exist. Default off. */
+    val desktopLyrics: Boolean = false,
+    /** Write current lyric into the media notification / session title (Halcyon 媒体通知歌词). */
+    val mediaNotificationLyrics: Boolean = false,
+    /** SuperLyric API publisher when the module is installed. Default off. */
+    val superLyric: Boolean = false,
+    /** Lyric Getter API publisher when the module is installed. Default off. */
+    val lyricGetter: Boolean = false,
 ) {
     fun encode() = JSONObject().apply {
         put("lyricon", lyricon); put("ios_controls", iosControls)
@@ -35,6 +51,15 @@ internal data class MediaSettings(
         put("volume_bar", volumeBar)
         put("content_downloads", contentDownloads)
         put("popup_glass_style", popupGlassStyle.key)
+        put("auto_transition", autoTransition)
+        put("auto_transition_duration", autoTransitionDuration)
+        put("auto_transition_speed_match", autoTransitionSpeedMatch)
+        put("auto_transition_animate", autoTransitionAnimate)
+        put("meizu_ticker", meizuTicker)
+        put("desktop_lyrics", desktopLyrics)
+        put("media_notification_lyrics", mediaNotificationLyrics)
+        put("super_lyric", superLyric)
+        put("lyric_getter", lyricGetter)
     }.toString()
     companion object {
         fun decode(text: String): MediaSettings {
@@ -50,7 +75,17 @@ internal data class MediaSettings(
                 json.opt("system_corners") as? Boolean ?: legacyChrome,
                 json.opt("volume_bar") as? Boolean ?: false,
                 json.opt("content_downloads") as? Boolean ?: false,
-                PopupGlassStyle.fromKey(json.opt("popup_glass_style") as? String))
+                PopupGlassStyle.fromKey(json.opt("popup_glass_style") as? String),
+                json.opt("auto_transition") as? Boolean ?: false,
+                (json.opt("auto_transition_duration") as? Int ?: 12).coerceIn(2, 20),
+                json.opt("auto_transition_speed_match") as? Boolean ?: false,
+                json.opt("auto_transition_animate") as? Boolean ?: true,
+                json.opt("meizu_ticker") as? Boolean ?: false,
+                json.opt("desktop_lyrics") as? Boolean ?: false,
+                json.opt("media_notification_lyrics") as? Boolean ?: false,
+                json.opt("super_lyric") as? Boolean ?: false,
+                json.opt("lyric_getter") as? Boolean ?: false,
+            )
         }
     }
 }
