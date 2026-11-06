@@ -1,8 +1,8 @@
 # AM 媒体增强插件
 
-用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1606、1607、1609、1611、1613**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供八个功能开关，中英文设置跟随界面语言。
+用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0 / 1614** 以及 **7.0.0-beta / 1606、1607、1609、1611、1613**（同一个发布包按宿主版本号自动选择对应 profile；其他版本会拒绝加载并列出受支持版本）。提供 14 项功能开关（按宿主版本自动隐藏不适用项），中英文设置跟随界面语言。
 
-下载：[最新发布](https://github.com/Kifranei/AM-plus-plus-media-plugin/releases/latest)。
+下载：[最新发布 v1.3.5](https://github.com/6hdj/AM-plus-plus-media-plugin/releases/latest)。已适配 Apple Music 7.0.0 / 1614。
 
 ## 功能
 
@@ -17,6 +17,7 @@
 | 播放页系统圆角 | 读取 Android 12+ 系统圆角，接口缺失时使用系统资源回退；原生背景和动画层使用相同顶部圆角，避免裁剪正在展开的玻璃卡片。 |
 | 播放页音量条 | 手机和平板、横竖屏的封面、歌词和播放列表页均支持 iOS 风格音量条，控制系统媒体音量并同步硬件音量键。按当前控件实际尺寸预留高度，适应不同系统及 AM 内部 DPI；双栏时音量条留在播放控件所在列。原生进出动画期间保持控件布局，切页时逐帧恢复音量条的有效位置。收起播放页时隐藏，固定音量设备显示为不可调节。平板同时开启 iOS 媒体控制时，按实测控件高度紧凑排列进度条、播放键、音量条和底部动作，为封面保留更多空间。OPPO / realme / OnePlus（ColorOS / realme UI / OxygenOS）因默认 DPI 较大暂不支持，自动禁用且开关不可开启。 |
 | 下载封面、歌词和介绍 | 艺术家详情页标题旁下载静态 JPEG、动态 MP4 和传记，带特色字标的艺术家另可下载最高分辨率透明 PNG 字标；专辑详情页可分别下载静态封面（原始最大尺寸 JPEG）、动态 MP4 和介绍。播放页更多菜单或长按歌词按钮保存原始 TTML，包括逐词时间、翻译、注音及人声信息。保存到 `Download/AM++`，支持取消，失败后清理未完成文件。 |
+| 自动过渡（AI DJ / AutoMix） | 队列页在原生 Shuffle / Repeat / ∞ 右侧增加 AutoMix 按钮；按调性、BPM、能量、可混合度和乐句/小节线选择接歌点，支持 Harmonic Blend、Bass Swap、Filter Mix、Quick Cut，并在过渡中做 incoming/outgoing 分轨音量与变速匹配。开启后自动决定过渡时长与起点，不固定秒数。 |
 
 ## 使用
 
@@ -36,6 +37,8 @@ v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。�
 未发布（1613 测试构建，版本号仍为 1.3.3 / 15）：新增 Apple Music 7.0.0-beta / 1613 profile `applemusic-1613.json`，由 1611 逐项按 1613 DEX 重新映射（39 个类改名（含 a7.d），如 `player.y`→`x`、`fragment.m`→`l`、`fragment.e`→`d`、`androidx.fragment.app.l`→`n`；字段普遍前移一位，如 `PlayerMainFragment.b0`→`a0`、`BottomSheetBehavior.o0`→`n0`；卡片分享观察者 `commerce.activities.m`→`a7.d`；「更多」菜单点击方法改回 `z(int, View, item)`），并用 1613 APK 校验全部符号与资源名。Hook 改为严格失败开放：回调在暂存副本上运行，抛出异常时宿主调用保持原样、不再让 AM++ 停用整个插件，同一 Hook 失败 3 次后仅注销该 Hook。新增测试诊断：所有诊断行以 `media-diag:` 开头，写入 LSPosed 日志、logcat 标签 `AMPP-media` 及插件数据目录 `media-diag.log`，包括启动时的宿主版本／profile、每个功能的 ACTIVE／UNSUPPORTED／FAILED、启动自检列出的全部无法解析的合约（类.方法(参数) 或 类.字段:类型），以及运行中失败的 Hook 成员。测试者提交日志时请过滤 `media-diag:`。
 
 Unreleased (1613 test build, still 1.3.3 / 15): adds the Apple Music 7.0.0-beta / 1613 profile `applemusic-1613.json`, remapped from 1611 against the 1613 DEX (39 class renames, most fields shifted by one letter, card-sharing observer `commerce.activities.m` → `a7.d`, More-menu click back to `z(int, View, item)`), with all symbols and resource names verified against the 1613 APK. Hooks are now strictly fail-open: callbacks run on a staged copy of the call, a throwing callback leaves the host call untouched and no longer makes AM++ stop the whole plugin, and a hook failing 3 times unregisters only itself. Tester diagnostics: every line starts with `media-diag:` (LSPosed log, logcat tag `AMPP-media`, and `media-diag.log` in the plugin data directory) and covers host build/profile at startup, each capability's ACTIVE/UNSUPPORTED/FAILED result, a startup self-check listing every unresolved contract, and any failing hook member at runtime.
+
+v1.3.5 / 17 适配 Apple Music 7.0.0 / 1614：新增 `applemusic-1614.json` profile（480 项符号/资源校验全部通过），真机启动自检 `all profile contracts resolve`，14 项能力全部 ACTIVE；包含 AutoMix 自动过渡、队列 AutoMix 按钮、播放页 iOS 音量条、词幕、歌曲/歌词卡片分享、液态玻璃、内容下载等完整功能。版本号按官方最新 v1.3.4 递增。
 
 v1.3.3 / 15 修复专辑详情页标题带「E」（Explicit）标识时下载按钮消失：标题行把标识与标题放在同一文本节点（内联占位符／附加「E」），旧逻辑要求文本与专辑名严格相等，匹配失败后按钮被隐藏。现改为容忍标题后仅跟随 Explicit／Clean 标识的文本（精确匹配优先），按钮定位到包含标识的行尾；原生 TextView 标题若以复合图标显示标识也会避开。适用于 Apple Music 1606/1607/1609/1611（共用同一实现），并新增单元测试。
 
