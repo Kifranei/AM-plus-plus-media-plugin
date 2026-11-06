@@ -124,7 +124,6 @@ internal class AutoTransitionIntegration(
                 }.getOrNull()
             }
             flog("setter state=${setCrossFadeStateMethod != null} duration=${setCrossFadeDurationMethod != null}")
-            LyricsPageVisibility.install(loader, scope)
 
             // ---- 0) UI 注入：队列页 AutoMix 按钮 ----
             AutoTransitionUi.enabled = runtimeEnabled
@@ -357,7 +356,7 @@ internal class AutoTransitionIntegration(
                                 val oldCover = lastCoverDrawable
                                 val newCover = pendingNewCover
                                 flog("cover: maybeStart true, coverView=${v != null} lastCover=${oldCover != null} pendingNew=${newCover != null}")
-                                if (!LyricsPageVisibility.visible) {
+                                if (true) {
                                     if (v != null && oldCover != null && newCover != null) {
                                         waitingForCover = false
                                         triggerCoverDissolve(v, oldCover, newCover)
@@ -572,7 +571,6 @@ internal class AutoTransitionIntegration(
             if (animate() && !imageId.isNullOrBlank() && MediaRuntime.observeMethod(setImageDrawable, object : PluginMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
-                    if (LyricsPageVisibility.visible) return
                     try {
                         val view = param.thisObject as? android.widget.ImageView ?: return
                         val targetId = view.resources.getIdentifier(imageId, "id", build.packageName)
@@ -724,7 +722,6 @@ internal class AutoTransitionIntegration(
             MediaRuntime.observeMethod(setImageDrawable, object : PluginMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
-                    if (LyricsPageVisibility.visible) return
                     runCatching {
                         val view = param.thisObject as? android.widget.ImageView ?: return
                         val d = param.args[0] as? android.graphics.drawable.Drawable ?: return
