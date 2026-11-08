@@ -39,7 +39,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         context.onClose { writer.shutdown() }
         // Resolve contracts before any capability registers; all host knowledge stays in this ZIP.
         // A profile without these contracts only loses Lyricon (its install reports Unsupported); never the whole plugin.
-        val needsLyricContracts = configured.lyricon || configured.meizuTicker || configured.desktopLyrics ||
+        val needsLyricContracts = configured.lyricon || configured.meizuTicker ||
             configured.mediaNotificationLyrics || configured.superLyric || configured.lyricGetter
         if (needsLyricContracts) runCatching {
             listOf("lyrics-install-method", "player-metadata-publish-method", "metadata-to-playback-item-method")
@@ -102,7 +102,6 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         }
         val systemLyricOptions = SystemLyricDeliveryIntegration.Options(
             meizuTicker = configured.meizuTicker,
-            desktopLyrics = configured.desktopLyrics,
             mediaNotificationLyrics = configured.mediaNotificationLyrics,
             superLyric = configured.superLyric,
             lyricGetter = configured.lyricGetter,
@@ -205,7 +204,6 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         }
         if (runtime.hostVersionCode < 1613) option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
         option(text.meizuTicker, draft.meizuTicker, text.meizuTickerDescription) { state, enabled -> state.copy(meizuTicker = enabled) }
-        option(text.desktopLyrics, draft.desktopLyrics, text.desktopLyricsDescription) { state, enabled -> state.copy(desktopLyrics = enabled) }
         option(text.mediaNotificationLyrics, draft.mediaNotificationLyrics, text.mediaNotificationLyricsDescription) { state, enabled ->
             state.copy(mediaNotificationLyrics = enabled)
         }

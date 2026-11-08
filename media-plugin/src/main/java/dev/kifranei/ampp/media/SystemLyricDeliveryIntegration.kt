@@ -18,7 +18,7 @@ import io.github.proify.lyricon.lyric.model.Song
 
 /**
  * Captures Apple Music lyrics / position with the same contracts as [LyriconIntegration]
- * (independent of whether Lyricon is installed) and fans out to Meizu ticker, desktop karaoke,
+ * (independent of whether Lyricon is installed) and fans out to Meizu ticker,
  * media-notification lyrics, SuperLyric and Lyric Getter — Halcyon's system lyric sinks.
  */
 internal class SystemLyricDeliveryIntegration(
@@ -29,12 +29,11 @@ internal class SystemLyricDeliveryIntegration(
 ) {
     data class Options(
         val meizuTicker: Boolean,
-        val desktopLyrics: Boolean,
         val mediaNotificationLyrics: Boolean,
         val superLyric: Boolean,
         val lyricGetter: Boolean,
     ) {
-        val anyEnabled get() = meizuTicker || desktopLyrics || mediaNotificationLyrics || superLyric || lyricGetter
+        val anyEnabled get() = meizuTicker || mediaNotificationLyrics || superLyric || lyricGetter
     }
 
     private var result: TargetCapabilityInstall? = null
@@ -48,7 +47,6 @@ internal class SystemLyricDeliveryIntegration(
     @Volatile private var running = false
 
     private val ticker = MeizuTickerBridge(application)
-    private val desktop = DesktopLyricOverlay(application)
     private val mediaNotification = MediaNotificationLyricBridge()
     private val superLyric = SuperLyricBridge()
     private val lyricGetter = LyricGetterBridge(application)
@@ -218,7 +216,6 @@ internal class SystemLyricDeliveryIntegration(
             })
 
             if (options.meizuTicker) ticker.setEnabled(true)
-            if (options.desktopLyrics) desktop.setEnabled(true)
             if (options.mediaNotificationLyrics) mediaNotification.setEnabled(true)
             if (options.superLyric) superLyric.setEnabled(true)
             if (options.lyricGetter) lyricGetter.setEnabled(true)
@@ -228,7 +225,6 @@ internal class SystemLyricDeliveryIntegration(
                 main.post {
                     main.removeCallbacksAndMessages(null)
                     ticker.destroy()
-                    desktop.destroy()
                     mediaNotification.destroy()
                     superLyric.destroy()
                     lyricGetter.destroy()
@@ -253,7 +249,6 @@ internal class SystemLyricDeliveryIntegration(
 
             val parts = buildList {
                 if (options.meizuTicker) add("魅族Ticker")
-                if (options.desktopLyrics) add("桌面歌词")
                 if (options.mediaNotificationLyrics) add("媒体通知歌词")
                 if (options.superLyric) add(if (superLyric.isAvailable()) "SuperLyric" else "SuperLyric(未安装)")
                 if (options.lyricGetter) add(if (lyricGetter.isAvailable()) "LyricGetter" else "LyricGetter(未安装)")
@@ -271,18 +266,13 @@ internal class SystemLyricDeliveryIntegration(
         val pos = position()
         val line = if (playing) LiveLyricIndexer.lineAt(song, pos) else null
         val key = line?.let { "${it.beginMs}:${it.text}:${it.secondary.orEmpty()}" }
-        if (!force && key != null && key == lastLineKey) {
-            // Still push position for desktop karaoke fill.
-            if (options.desktopLyrics) desktop.onLyric(songMeta, line, pos, true)
-            return
-        }
+        if (!force && key != null && key == lastLineKey) return
         if (key != null) lastLineKey = key
         fanout(line, pos, playing)
     }
 
     private fun fanout(line: LiveLyricLine?, positionMs: Long, playing: Boolean) {
         runCatching { if (options.meizuTicker) ticker.onLyric(songMeta, line, positionMs, playing) }
-        runCatching { if (options.desktopLyrics) desktop.onLyric(songMeta, line, positionMs, playing) }
         runCatching { if (options.mediaNotificationLyrics) mediaNotification.onLyric(songMeta, line, positionMs, playing) }
         runCatching { if (options.superLyric) superLyric.onLyric(songMeta, line, positionMs, playing) }
         runCatching { if (options.lyricGetter) lyricGetter.onLyric(songMeta, line, positionMs, playing) }

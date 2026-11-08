@@ -2,6 +2,14 @@
 
 最新版本在前。Newest first.
 
+## v1.3.5 / 17
+
+- 移除桌面歌词（逐字）悬浮窗及设置开关；状态栏歌词（魅族 Ticker）、媒体通知歌词、SuperLyric、Lyric Getter 保留。
+  Removes the desktop/floating word-by-word lyrics overlay and its setting; status-bar (Meizu Ticker), media-notification, SuperLyric and Lyric Getter delivery remain.
+- 自动过渡（AI DJ / AutoMix）：恢复封面溶解与进度条光效，修复歌词页标志残留导致跳过封面溶解；音频过渡不变（HXJ）。
+  AutoMix: restores the cover dissolve and progress glow, fixing a stuck lyrics-page flag that skipped the dissolve; audio transitions unchanged (HXJ).
+- 项目介绍更新为 Apple Music 7.0.0 / 1614（HXJ）。 / Project intro updated for Apple Music 7.0.0 / 1614 (HXJ).
+
 ## v1.3.5-Pre / 17（预发布 / Pre-release）
 
 新增五个系统歌词投递选项，复用词幕的 Apple Music 歌词与时间轴捕获，**全部默认关闭**，适配 Apple Music 1606–1614。

@@ -52,10 +52,6 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val meizuTickerDescription get() = text(
         "通过 Flyme Ticker 通知在魅族状态栏显示当前歌词；不依赖词幕。默认关闭。",
         "Show the current lyric in the Flyme status bar via ticker notifications. Independent of Lyricon. Off by default.")
-    val desktopLyrics get() = text("桌面歌词（逐字）", "Desktop lyrics (word-by-word)")
-    val desktopLyricsDescription get() = text(
-        "系统悬浮窗显示当前歌词；有逐字时间轴时高亮到字。需为 Apple Music 开启「显示在其他应用上层」。默认关闭。",
-        "Floating overlay for the current lyric with word-by-word highlight when timings exist. Requires “Display over other apps” for Apple Music. Off by default.")
     val mediaNotificationLyrics get() = text("媒体通知歌词", "Media notification lyrics")
     val mediaNotificationLyricsDescription get() = text(
         "将当前歌词写入媒体通知标题，供蓝牙设备、车机或系统媒体中心显示。默认关闭。",

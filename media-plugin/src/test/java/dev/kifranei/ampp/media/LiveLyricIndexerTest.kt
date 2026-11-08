@@ -38,35 +38,26 @@ class LiveLyricIndexerTest {
         assertEquals("hello ", live.words[0].text)
     }
 
-    @Test fun `fill progress follows word timings like Halcyon karaoke`() {
-        val words = listOf(
-            LiveLyricWord("a", 0, 100),
-            LiveLyricWord("b", 100, 200),
-            LiveLyricWord("c", 200, 300),
-        )
-        assertEquals(0f, LiveLyricIndexer.fillProgress(words, 0, 0, 300), 0.001f)
-        assertEquals(0.5f, LiveLyricIndexer.fillProgress(words, 150, 0, 300), 0.001f)
-        assertEquals(1f, LiveLyricIndexer.fillProgress(words, 300, 0, 300), 0.001f)
-        assertEquals(0.5f, LiveLyricIndexer.fillProgress(emptyList(), 500, 0, 1000), 0.001f)
-    }
 }
 
 class MediaSettingsSystemLyricTest {
     @Test fun `system lyric sinks default off and round-trip`() {
         val empty = MediaSettings.decode("{}")
         assertFalse(empty.meizuTicker)
-        assertFalse(empty.desktopLyrics)
         assertFalse(empty.mediaNotificationLyrics)
         assertFalse(empty.superLyric)
         assertFalse(empty.lyricGetter)
         val enabled = MediaSettings(
             meizuTicker = true,
-            desktopLyrics = true,
             mediaNotificationLyrics = true,
             superLyric = true,
             lyricGetter = true,
         )
         assertEquals(enabled, MediaSettings.decode(enabled.encode()))
+        assertFalse(enabled.encode().contains("desktop_lyrics"))
+        val leftover = MediaSettings.decode("{\"desktop_lyrics\":true,\"meizu_ticker\":true}")
+        assertTrue(leftover.meizuTicker)
+        assertFalse(leftover.encode().contains("desktop_lyrics"))
     }
 
     @Test fun `flyme device detection matches Halcyon manufacturer brand display rules`() {

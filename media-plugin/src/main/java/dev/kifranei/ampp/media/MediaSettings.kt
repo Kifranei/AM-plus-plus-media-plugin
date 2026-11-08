@@ -35,8 +35,6 @@ internal data class MediaSettings(
     val autoTransitionAnimate: Boolean = true,
     /** Flyme / Meizu status-bar ticker lyrics (Halcyon TickerBridge). Default off. */
     val meizuTicker: Boolean = false,
-    /** Desktop / overlay lyrics with word-by-word karaoke when timings exist. Default off. */
-    val desktopLyrics: Boolean = false,
     /** Write current lyric into the media notification / session title (Halcyon 媒体通知歌词). */
     val mediaNotificationLyrics: Boolean = false,
     /** SuperLyric API publisher when the module is installed. Default off. */
@@ -56,7 +54,6 @@ internal data class MediaSettings(
         put("auto_transition_speed_match", autoTransitionSpeedMatch)
         put("auto_transition_animate", autoTransitionAnimate)
         put("meizu_ticker", meizuTicker)
-        put("desktop_lyrics", desktopLyrics)
         put("media_notification_lyrics", mediaNotificationLyrics)
         put("super_lyric", superLyric)
         put("lyric_getter", lyricGetter)
@@ -81,7 +78,6 @@ internal data class MediaSettings(
                 json.opt("auto_transition_speed_match") as? Boolean ?: false,
                 json.opt("auto_transition_animate") as? Boolean ?: true,
                 json.opt("meizu_ticker") as? Boolean ?: false,
-                json.opt("desktop_lyrics") as? Boolean ?: false,
                 json.opt("media_notification_lyrics") as? Boolean ?: false,
                 json.opt("super_lyric") as? Boolean ?: false,
                 json.opt("lyric_getter") as? Boolean ?: false,

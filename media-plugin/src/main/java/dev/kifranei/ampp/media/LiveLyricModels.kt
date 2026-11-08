@@ -35,7 +35,7 @@ internal fun interface LiveLyricSink {
     fun onLyric(song: LiveLyricSongMeta?, line: LiveLyricLine?, positionMs: Long, playing: Boolean)
 }
 
-/** Resolve the active line (and optional word progress) from a Lyricon [Song]. */
+/** Resolve the active line (including word timings for SuperLyric) from a Lyricon [Song]. */
 internal object LiveLyricIndexer {
     fun lineAt(song: Song?, positionMs: Long): LiveLyricLine? {
         val lines = song?.lyrics.orEmpty()
@@ -86,44 +86,4 @@ internal object LiveLyricIndexer {
         beginMs = begin,
         endMs = end.takeIf { it > begin } ?: (begin + duration).takeIf { it > begin } ?: (begin + 300L),
     )
-
-    /** Halcyon karaokeProgress: fraction of the active word that has been sung. */
-    fun wordProgress(words: List<LiveLyricWord>, positionMs: Long): Float {
-        if (words.isEmpty()) return 0f
-        var completed = 0
-        for (word in words) {
-            when {
-                positionMs < word.beginMs -> return completed.toFloat() / words.size
-                positionMs >= word.endMs -> completed++
-                else -> {
-                    val span = (word.endMs - word.beginMs).coerceAtLeast(1L)
-                    val local = ((positionMs - word.beginMs).toFloat() / span).coerceIn(0f, 1f)
-                    return (completed + local) / words.size
-                }
-            }
-        }
-        return 1f
-    }
-
-    /** Cumulative width-style progress across timed words (for Canvas clip karaoke). */
-    fun fillProgress(words: List<LiveLyricWord>, positionMs: Long, fallbackBegin: Long, fallbackEnd: Long): Float {
-        if (words.isEmpty()) {
-            val span = (fallbackEnd - fallbackBegin).coerceAtLeast(1L)
-            return ((positionMs - fallbackBegin).toFloat() / span).coerceIn(0f, 1f)
-        }
-        val total = words.sumOf { (it.endMs - it.beginMs).coerceAtLeast(1L).toDouble() }.toFloat().coerceAtLeast(1f)
-        var sung = 0f
-        for (word in words) {
-            val span = (word.endMs - word.beginMs).coerceAtLeast(1L).toFloat()
-            when {
-                positionMs <= word.beginMs -> break
-                positionMs >= word.endMs -> sung += span
-                else -> {
-                    sung += span * ((positionMs - word.beginMs).toFloat() / span).coerceIn(0f, 1f)
-                    break
-                }
-            }
-        }
-        return (sung / total).coerceIn(0f, 1f)
-    }
 }
