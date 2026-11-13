@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** SDK v1 entry; registration, resources and configuration belong to this ZIP. */
 /** Shown in diagnostics; kept in sync with media-plugin/plugin.json by PluginProfileSelectionTest. */
-internal const val PLUGIN_BUILD = "1.3.5/17"
+internal const val PLUGIN_BUILD = "1.3.6/18"
 
 class MediaIntegrationsPlugin : AmppPlugin() {
     private lateinit var runtime: PluginContext
@@ -153,115 +153,38 @@ class MediaIntegrationsPlugin : AmppPlugin() {
 
     override fun createSettings(context: Context): PluginSettingsSession {
         val closed = AtomicBoolean()
-        val main = Handler(Looper.getMainLooper())
-        val density = context.resources.displayMetrics.density
         val text = MediaSettingsText.forLanguage(context.resources.configuration.locales[0].language)
-        fun dp(n: Int) = (n * density).toInt()
-        var draft = store.read()
-        val layout = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(12), dp(20), dp(20)) }
-        layout.addView(TextView(context).apply {
-            this.text = "${text.name}\n${text.introduction}"
-            textSize = 16f
-        })
-        val switches = ArrayList<Switch>()
-        val locked = HashSet<Switch>()
-        val saveButton = Button(context).apply { this.text = text.save }
-        fun persist() {
-            val next = draft
-            switches.forEach { it.isEnabled = false }
-            saveButton.isEnabled = false
+        val initial = store.read()
+        fun persist(next: MediaSettings) {
             writer.execute {
                 val result = runCatching { store.write(next) }
-                main.post {
+                Handler(Looper.getMainLooper()).post {
                     if (closed.get()) return@post
-                    switches.forEach { it.isEnabled = it !in locked }
-                    saveButton.isEnabled = true
-                    result.onSuccess { Toast.makeText(context, text.saved, Toast.LENGTH_SHORT).show() }
-                        .onFailure {
-                            Toast.makeText(context, text.saveFailed, Toast.LENGTH_SHORT).show()
-                            runtime.log("Plugin settings write failed", it)
-                        }
+                    result.onSuccess {
+                        Toast.makeText(context, text.saved, Toast.LENGTH_SHORT).show()
+                    }.onFailure {
+                        Toast.makeText(context, text.saveFailed, Toast.LENGTH_SHORT).show()
+                        runtime.log("Plugin settings write failed", it)
+                    }
                 }
             }
         }
-        fun option(title: String, checked: Boolean, description: String? = null, unavailable: Boolean = false,
-                   change: (MediaSettings, Boolean) -> MediaSettings) {
-            val control = Switch(context).apply { this.text = title; isChecked = checked && !unavailable; minHeight = dp(56) }
-            switches += control
-            if (unavailable) { locked += control; control.isEnabled = false }
-            control.setOnCheckedChangeListener { button, enabled ->
-                // The SDK has no locked state: refuse to enable and revert if the switch is ever toggled.
-                if (unavailable && enabled) { button.isChecked = false; return@setOnCheckedChangeListener }
-                draft = change(draft, enabled)
-                persist()
-            }
-            layout.addView(control)
-            if (description != null) layout.addView(TextView(context).apply {
-                this.text = description; textSize = 13f
-                setTextColor(textColors.withAlpha(180))
-                setPadding(0, 0, dp(40), dp(12))
-            })
-        }
-        if (runtime.hostVersionCode < 1613) option(text.lyricon, draft.lyricon) { state, enabled -> state.copy(lyricon = enabled) }
-        option(text.meizuTicker, draft.meizuTicker, text.meizuTickerDescription) { state, enabled -> state.copy(meizuTicker = enabled) }
-        option(text.mediaNotificationLyrics, draft.mediaNotificationLyrics, text.mediaNotificationLyricsDescription) { state, enabled ->
-            state.copy(mediaNotificationLyrics = enabled)
-        }
-        option(text.superLyric, draft.superLyric, text.superLyricDescription) { state, enabled -> state.copy(superLyric = enabled) }
-        option(text.lyricGetter, draft.lyricGetter, text.lyricGetterDescription) { state, enabled -> state.copy(lyricGetter = enabled) }
-        option(text.iosControls, draft.iosControls, text.iosControlsDescription) { state, enabled -> state.copy(iosControls = enabled) }
-        option(text.sharing, draft.sharing, text.sharingDescription) { state, enabled -> state.copy(sharing = enabled) }
-        option(text.playerGlass, draft.playerGlass, text.playerGlassDescription) { state, enabled -> state.copy(playerGlass = enabled) }
-        layout.addView(TextView(context).apply { this.text = text.popupGlassStyle; textSize = 16f; setPadding(0, dp(8), 0, 0) })
-        val styles = PopupGlassStyle.values()
-        val styleLabels = listOf(text.popupStyleBottomBar, text.popupStyleMoreMenu, text.popupStyleNoFrost)
-        val styleSpinner = Spinner(context, Spinner.MODE_DROPDOWN).apply {
-            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_dropdown_item, styleLabels)
-            setSelection(styles.indexOf(draft.popupGlassStyle).coerceAtLeast(0), false)
-            minimumHeight = dp(48)
-            onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val chosen = styles.getOrNull(position) ?: return
-                    if (chosen == draft.popupGlassStyle) return
-                    draft = draft.copy(popupGlassStyle = chosen)
-                    persist()
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        val view = PluginGlassHostView(context, bleedDp = 0).apply {
+            content {
+                MiuixSettingsPage(
+                    text = text,
+                    initial = initial,
+                    hostVersionCode = runtime.hostVersionCode.toInt(),
+                    oplusUnsupported = OplusRomDetector.current,
+                    status = ArrayList(status),
+                    onPersist = ::persist,
+                )
             }
         }
-        layout.addView(styleSpinner)
-        layout.addView(TextView(context).apply {
-            this.text = text.popupGlassStyleDescription; textSize = 13f
-            setTextColor(textColors.withAlpha(180)); setPadding(0, 0, dp(40), dp(12))
-        })
-        option(text.playerHandle, draft.playerHandle) { state, enabled -> state.copy(playerHandle = enabled) }
-        option(text.systemCorners, draft.systemCorners) { state, enabled -> state.copy(systemCorners = enabled) }
-        val oplus = OplusRomDetector.current
-        option(text.volumeBar, draft.volumeBar, if (oplus) text.volumeBarOplusUnsupported else null, unavailable = oplus) { state, enabled ->
-            state.copy(volumeBar = enabled && !oplus)
-        }
-        option(text.contentDownloads, draft.contentDownloads, text.contentDownloadsDescription) { state, enabled -> state.copy(contentDownloads = enabled) }
-        // ---- Auto-Transition (AI DJ) ----
-        option(text.autoTransition, draft.autoTransition, text.autoTransitionDescription) { state, enabled -> state.copy(autoTransition = enabled) }
-        layout.addView(TextView(context).apply {
-            this.text = "过渡时长和起点由歌曲分析自动决定，不再固定为某个秒数。"
-            textSize = 13f
-            setPadding(0, dp(4), 0, dp(8))
-        })
-        option(text.autoTransitionSpeedMatch, draft.autoTransitionSpeedMatch) { state, enabled -> state.copy(autoTransitionSpeedMatch = enabled) }
-        option(text.autoTransitionAnimate, draft.autoTransitionAnimate) { state, enabled -> state.copy(autoTransitionAnimate = enabled) }
-        saveButton.setOnClickListener { persist() }
-        layout.addView(saveButton)
-        layout.addView(TextView(context).apply { this.text = text.currentRun + "\n" + status.joinToString("\n"); textSize = 14f; setPadding(0, dp(16), 0, 0) })
-        val page = ScrollView(context).apply { addView(layout) }
         return object : PluginSettingsSession {
-            override fun getView(): View = page
+            override fun getView(): View = view
             override fun close() {
                 if (!closed.compareAndSet(false, true)) return
-                switches.forEach { it.setOnCheckedChangeListener(null) }
-                styleSpinner.onItemSelectedListener = null
-                saveButton.setOnClickListener(null)
-                main.removeCallbacksAndMessages(null)
             }
         }
     }

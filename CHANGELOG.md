@@ -2,6 +2,21 @@
 
 最新版本在前。Newest first.
 
+## v1.3.6 / 18
+
+**v1.3.6 (18)** — 正式版：把媒体插件的设置页改成 AM++ 全屏页面，并按 Miuix 官方设置页标准重做分类卡片、开关、保存按钮和「弹窗液态玻璃样式」下拉；修复 1614 上「词幕集成」被旧 1613 条件隐藏；同步上游最新歌词投递能力（魅族 Ticker、媒体通知歌词、SuperLyric、Lyric Getter）。（HXJ）
+Official release: turns the media plugin settings into a full-screen AM++ page and rebuilds it with Miuix's standard settings components (grouped cards, switches, save button and the popup-glass dropdown); restores the Lyricon switch on 1614 which an old 1613-only condition hid; syncs the latest upstream lyric delivery options (Meizu Ticker, media notification, SuperLyric, Lyric Getter). (HXJ)
+
+- 插件设置页改为全屏页面，不再使用二级弹窗 / Plugin settings is a full-screen page instead of a secondary popup.
+- 设置页按 Miuix 官方设置示例重做：`Scaffold`、`Card`、`SmallTitle`、`SwitchPreference`、`Button` 均使用默认主题样式 / Rebuilt following Miuix's official settings example; Scaffold, Card, SmallTitle, SwitchPreference and Button use defaults.
+- 「弹窗液态玻璃样式」改用 Miuix 官方 `OverlayDropdownPreference`，删除自定义 Popup 定位和阴影 / Uses Miuix's official OverlayDropdownPreference; custom Popup positioning and shadow removed.
+- 设置页背景改为 `MiuixTheme.colorScheme.surface`，与 AM++ 设置页一致 / Background now uses MiuixTheme.colorScheme.surface, matching AM++ settings.
+- 1614 上「词幕集成」恢复显示，不再被 `hostVersionCode < 1613` 条件隐藏 / Lyricon is visible again on 1614, no longer hidden by the hostVersionCode < 1613 condition.
+- 新增「状态栏歌词（魅族 Ticker）」「媒体通知歌词」「SuperLyric 投递」「Lyric Getter 投递」设置项，跟随上游 1.3.5 / Adds the Meizu Ticker, media notification, SuperLyric and Lyric Getter settings from upstream 1.3.5.
+- AutoMix 自动过渡、变速匹配和切歌封面过渡保持 / AutoMix transition, beat match and cover transition are retained.
+
+更新日志 / Changelog: [CHANGELOG.md](https://github.com/Kifranei/AM-plus-plus-media-plugin/blob/v1.3.6/CHANGELOG.md)
+
 ## v1.3.5 / 17
 
 - 移除桌面歌词（逐字）悬浮窗及设置开关；状态栏歌词（魅族 Ticker）、媒体通知歌词、SuperLyric、Lyric Getter 保留。

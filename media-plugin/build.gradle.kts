@@ -48,6 +48,36 @@ dependencies {
     // DexKit Java API is dex'd into code.jar. Native libdexkit.so is NOT packaged in the
     // plugin ZIP (SDK allows only plugin.json/code.jar/assets/); runtime loads it from AM++.
     implementation("org.luckypray:dexkit:2.2.0")
+    // Miuix settings UI. Compose runtime/foundation are supplied by AM++ (hostRendering),
+    // so exclude all Compose/Kotlin transitives and only bundle Miuix itself.
+    implementation("top.yukonga.miuix.kmp:miuix-ui:0.9.4") {
+        exclude(group = "org.jetbrains.compose")
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "androidx.compose")
+        exclude(group = "androidx.navigationevent")
+    }
+    implementation("top.yukonga.miuix.kmp:miuix-preference:0.9.4") {
+        exclude(group = "org.jetbrains.compose")
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "androidx.compose")
+        exclude(group = "androidx.navigationevent")
+    }
+    // Miuix references these; host does not provide them.
+    implementation("androidx.navigationevent:navigationevent-compose:1.1.2") {
+        exclude(group = "org.jetbrains.compose")
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "androidx.compose")
+    }
+    implementation("androidx.navigationevent:navigationevent:1.1.2") {
+        exclude(group = "org.jetbrains.compose")
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "androidx.compose")
+    }
+    implementation("org.jetbrains.compose.material3:material3-window-size-class:1.12.0-alpha03") {
+        exclude(group = "org.jetbrains.compose")
+        exclude(group = "org.jetbrains.kotlin")
+        exclude(group = "androidx.compose")
+    }
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
     testImplementation(hostSdk)
