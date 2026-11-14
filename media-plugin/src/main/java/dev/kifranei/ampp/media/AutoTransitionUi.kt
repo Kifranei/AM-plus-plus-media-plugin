@@ -357,7 +357,12 @@ internal class AutoMixPillView(context: Context) : View(context) {
         val path = android.graphics.Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), h), h / 2f, h / 2f, android.graphics.Path.Direction.CW) }
         canvas.save(); canvas.clipPath(path)
         backdrop?.let { canvas.drawBitmap(it, null, RectF(0f, 0f, width.toFloat(), h), Paint(Paint.FILTER_BITMAP_FLAG)) }
-        fill.color = if (active) Color.parseColor("#99C9D4F5") else Color.parseColor("#1AFFFFFF")
+        // Use the exact native button color; no extra white/blue overlay.
+        var bg = if (active) activeColor else inactiveColor
+        if (Color.alpha(bg) < 16) {
+            bg = if (active) Color.argb(45, 255, 255, 255) else Color.argb(18, 255, 255, 255)
+        }
+        fill.color = bg
         canvas.drawRect(0f, 0f, width.toFloat(), h, fill)
         canvas.restore()
         fill.color = Color.TRANSPARENT
@@ -366,12 +371,6 @@ internal class AutoMixPillView(context: Context) : View(context) {
         val cx = width / 2f
         val c1 = cx - r * 0.55f
         val c2 = cx + r * 0.55f
-        val bg = if (active) activeColor else inactiveColor
-        runCatching {
-            val d = if (active) activeDrawable else inactiveDrawable
-            if (d != null) { d.setBounds(0, 0, width, height); d.draw(canvas) }
-            else canvas.drawRoundRect(0f, 0f, width.toFloat(), h, h / 2f, h / 2f, fill.apply { color = bg })
-        }.onFailure { canvas.drawRoundRect(0f, 0f, width.toFloat(), h, h / 2f, h / 2f, fill.apply { color = bg }) }
         val icon = if (active) Color.BLACK else Color.WHITE
         // 左圆：细描边，半透明
         stroke.color = (icon and 0x00FFFFFF) or (0x99 shl 24)
