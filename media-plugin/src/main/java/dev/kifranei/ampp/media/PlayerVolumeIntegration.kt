@@ -1,5 +1,7 @@
 package dev.kifranei.ampp.media
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.os.Handler
 import android.os.Looper
 import android.view.View
@@ -107,6 +109,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
         private val contentIds = names.getJSONArray("contentIds").let { values -> (0 until values.length()).map { id(values.getString(it)) }.toSet() }
         private data class Controls(val root: ViewGroup, val transports: List<View>, val actions: View, val progress: List<View>)
         private var controls = emptyList<Controls>()
+        private var nativeProgressBar: ProgressBar? = null
         private var controlsDirty = true
         private data class Spacing(val params: ViewGroup.MarginLayoutParams, val value: PlayerVolumeSpacing)
         private val spacing = IdentityHashMap<View, Spacing>()
@@ -177,9 +180,11 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             controlsDirty = false
             val bar = controls.asSequence().flatMap { it.progress.asSequence() }
                 .mapNotNull(::findProgressBar).firstOrNull()
+            nativeProgressBar = bar
             val fill = bar?.progressTintList?.defaultColor ?: 0
             val track = bar?.progressBackgroundTintList?.defaultColor ?: 0
             volume.setNativeProgressColors(fill, track)
+            nativeProgressBar?.progressDrawable?.constantState?.newDrawable()?.mutate()?.let(volume::setNativeProgressDrawable)
         }
         private fun opacity(controls: Controls): Float? {
             val play = controls.transports.first()
@@ -187,7 +192,28 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             return if (play.isShown && actions.isShown && play.width > 0 && actions.width > 0 &&
                 controls.progress.any(View::isShown)) minOf(effectiveAlpha(play), effectiveAlpha(actions)) else null
         }
+        /** Sample the rendered progress bar itself, so alpha/blend matches exactly. */
+        private fun sampleNativeProgressColors() {
+            val bar = nativeProgressBar ?: return
+            if (bar.width <= 0 || bar.height <= 0 || !bar.isShown) return
+            runCatching {
+                val bmp = Bitmap.createBitmap(bar.width, bar.height, Bitmap.Config.ARGB_8888)
+                bar.draw(Canvas(bmp))
+                val max = bar.max.coerceAtLeast(1)
+                val fraction = (bar.progress.toFloat() / max).coerceIn(0f, 1f)
+                val y = (bar.height / 2).coerceIn(0, bar.height - 1)
+                val fillX = (bar.width * fraction * 0.5f).toInt().coerceIn(0, bar.width - 1)
+                val trackX = (bar.width * 0.98f).toInt().coerceIn(0, bar.width - 1)
+                // The native progress bar is translucent over the player gradient.
+                // Sample the composited pixel and make it opaque, otherwise the
+                // volume bar composites over a different area and shifts hue again.
+                val fill = bmp.getPixel(fillX, y) or 0xFF000000.toInt()
+                val track = bmp.getPixel(trackX, y) or 0xFF000000.toInt()
+                volume.setNativeProgressColors(fill, track)
+            }
+        }
         fun update() {
+            sampleNativeProgressColors()
             fun hide() { volume.visibility = View.INVISIBLE; volume.setPageVisible(false) }
             fun hold() {
                 val source = holdColumn.source?.takeIf(View::isAttachedToWindow)
