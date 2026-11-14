@@ -152,6 +152,14 @@ class MediaIntegrationsPlugin : AmppPlugin() {
     override fun onStop() { runtime.log("Media plugin stopped; registered callbacks and provider released", null) }
 
     override fun createSettings(context: Context): PluginSettingsSession {
+        // v2 host chrome: title and scroll contract are provided by the host page.
+        val settingsText = MediaSettingsText.forLanguage(context.resources.configuration.locales[0].language)
+        runCatching {
+            val bridge = Class.forName("dev.amenhancer.module.ui.PluginSettingsScrollBridge")
+            bridge.getMethod("updateTitle", String::class.java).invoke(null, settingsText.name)
+            bridge.getMethod("updateLargeTitle", String::class.java).invoke(null, settingsText.name)
+            bridge.getMethod("updateSupportsScroll", Boolean::class.javaPrimitiveType).invoke(null, true)
+        }
         val closed = AtomicBoolean()
         val text = MediaSettingsText.forLanguage(context.resources.configuration.locales[0].language)
         val initial = store.read()
