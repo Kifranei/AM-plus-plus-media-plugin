@@ -4,6 +4,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ProgressBar
 import android.view.ViewTreeObserver
 import java.util.IdentityHashMap
 import kotlin.math.roundToInt
@@ -164,9 +165,21 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             if (transports.size != transportIds.size || progress.isEmpty()) return null
             return Controls(group, transports, actions, progress)
         }
+        private fun findProgressBar(view: View): ProgressBar? {
+            if (view is ProgressBar) return view
+            if (view is ViewGroup) for (i in 0 until view.childCount) {
+                findProgressBar(view.getChildAt(i))?.let { return it }
+            }
+            return null
+        }
         private fun discoverControls() {
             controls = groupsIn(root).filterIsInstance<ViewGroup>().mapNotNull(::controlsIn)
             controlsDirty = false
+            val bar = controls.asSequence().flatMap { it.progress.asSequence() }
+                .mapNotNull(::findProgressBar).firstOrNull()
+            val fill = bar?.progressTintList?.defaultColor ?: 0
+            val track = bar?.progressBackgroundTintList?.defaultColor ?: 0
+            volume.setNativeProgressColors(fill, track)
         }
         private fun opacity(controls: Controls): Float? {
             val play = controls.transports.first()
