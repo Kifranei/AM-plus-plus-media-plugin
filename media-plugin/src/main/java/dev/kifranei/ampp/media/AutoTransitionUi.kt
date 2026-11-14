@@ -75,7 +75,15 @@ internal object AutoTransitionUi {
         if (view.width <= 0 || view.height <= 0) return 0
         val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
         view.draw(Canvas(bitmap))
-        bitmap.getPixel(view.width / 2, view.height / 2)
+        // Sample only the pill's left/right body, never the centered icon.
+        val xs = intArrayOf(view.width / 8, view.width * 7 / 8)
+        val y = view.height / 2
+        var a = 0L; var r = 0L; var g = 0L; var b = 0L; var n = 0
+        for (x in xs) {
+            val c = bitmap.getPixel(x.coerceIn(0, view.width - 1), y.coerceIn(0, view.height - 1))
+            a += c ushr 24; r += (c shr 16) and 0xff; g += (c shr 8) and 0xff; b += c and 0xff; n++
+        }
+        ((a / n).toInt() shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
     }.getOrDefault(0)
 
     private fun setCardActive(view: View, active: Boolean, activeBg: Int, inactiveBg: Int,
@@ -165,8 +173,8 @@ internal object AutoTransitionUi {
             ?: neighbor?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
                 ?.imageTintList?.defaultColor
             ?: Color.BLACK
-        val neighborBg = neighbor?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 }
-            ?: cardColor(neighbor ?: container).takeIf { it != 0 }
+        val neighborBg = cardColor(neighbor ?: container).takeIf { it != 0 }
+            ?: neighbor?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 }
             ?: vibrant("player_vibrant_secondary", Color.parseColor("#D6E2FF"))
         FileLogger.log("UI native colors neighborBg=$neighborBg neighborIcon=$neighborIcon")
         val pill: View = AutoMixPillView(context).apply {
@@ -366,17 +374,20 @@ internal class AutoMixPillView(context: Context) : View(context) {
         super.onDraw(canvas)
         val h = height.toFloat()
         val path = android.graphics.Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), h), h / 2f, h / 2f, android.graphics.Path.Direction.CW) }
-        canvas.save(); canvas.clipPath(path)
-        backdrop?.let { canvas.drawBitmap(it, null, RectF(0f, 0f, width.toFloat(), h), Paint(Paint.FILTER_BITMAP_FLAG)) }
-        // Use the exact native button color; no extra white/blue overlay.
         var bg = if (active) activeColor else inactiveColor
         if (Color.alpha(bg) < 16) {
             bg = if (active) Color.argb(45, 255, 255, 255) else Color.argb(18, 255, 255, 255)
         }
-        fill.color = bg
-        canvas.drawRect(0f, 0f, width.toFloat(), h, fill)
-        canvas.restore()
-        fill.color = Color.TRANSPARENT
+        // Native background drawable already paints the exact material; only fall back
+        // to manual painting when no native drawable is available.
+        if (background == null) {
+            canvas.save(); canvas.clipPath(path)
+            backdrop?.let { canvas.drawBitmap(it, null, RectF(0f, 0f, width.toFloat(), h), Paint(Paint.FILTER_BITMAP_FLAG)) }
+            fill.color = bg
+            canvas.drawRect(0f, 0f, width.toFloat(), h, fill)
+            canvas.restore()
+            fill.color = Color.TRANSPARENT
+        }
         val r = h * 0.20f
         val cy = h / 2f
         val cx = width / 2f
