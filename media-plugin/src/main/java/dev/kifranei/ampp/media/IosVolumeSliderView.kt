@@ -135,8 +135,8 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
         val left = 40 * density
         val right = width - 40 * density
         val radius = (if (dragging) 5f else 3f) * density
-        val filledColor = nativeFilled.takeIf { it != 0 }
-            ?: playerColor("player_seekbar_color", Color.argb(115, 255, 255, 255))
+        // Match the native progress bar: filled portion is opaque white.
+        val filledColor = nativeFilled.takeIf { it != 0 } ?: Color.WHITE
         val trackColor = nativeTrack.takeIf { it != 0 }
             ?: playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
         val fraction = PlayerVolumeGeometry.fraction(level, minimum, maximum)
