@@ -40,17 +40,12 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
     private var nativeFilled = 0
     private var nativeTrack = 0
     private var nativeProgressDrawable: android.graphics.drawable.Drawable? = null
-    private var nativeTrackBitmap: android.graphics.Bitmap? = null
     fun setNativeProgressColors(filled: Int, track: Int) {
         if (filled != 0 || track != 0) {
             nativeFilled = filled
             nativeTrack = track
             invalidate()
         }
-    }
-
-    fun setNativeTrackBitmap(bitmap: android.graphics.Bitmap?) {
-        if (bitmap != null) { nativeTrackBitmap = bitmap; invalidate() }
     }
 
     fun setNativeProgressDrawable(drawable: android.graphics.drawable.Drawable?) {
@@ -145,18 +140,6 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
         val trackColor = nativeTrack.takeIf { it != 0 }
             ?: playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
         val fraction = PlayerVolumeGeometry.fraction(level, minimum, maximum)
-        val trackBitmap = nativeTrackBitmap
-        if (trackBitmap != null) {
-            // Copy the native seek bar's rendered track texture verbatim.
-            paint.alpha = 255
-            paint.style = Paint.Style.FILL
-            canvas.drawBitmap(trackBitmap, null,
-                android.graphics.RectF(left, center - radius, right, center + radius), paint)
-            val filled = left + (right - left) * fraction
-            paint.color = filledColor
-            paint.alpha = 255
-            if (filled > left) canvas.drawRoundRect(left, center - radius, filled, center + radius, radius, radius, paint)
-        } else {
         val drawable = nativeProgressDrawable
         if (drawable != null) {
             // Use the native seek-bar drawable itself: every color, alpha and state
@@ -173,7 +156,6 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
             paint.color = filledColor
             paint.alpha = if (isEnabled) Color.alpha(filledColor) else (Color.alpha(filledColor) / 2)
             if (filled > left) canvas.drawRoundRect(left, center - radius, filled, center + radius, radius, radius, paint)
-        }
         }
         fun icon(x: Float, path: Path) {
             val save = canvas.save()
