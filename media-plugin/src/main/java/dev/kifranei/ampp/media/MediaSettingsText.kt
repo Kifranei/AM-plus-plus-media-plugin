@@ -43,8 +43,8 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val features get() = text("功能", "Features")
     val currentRun get() = text("本次运行", "Current session")
     val autoTransition get() = text("自动过渡（AI DJ）", "Auto-Transition (AI DJ)")
-    val autoTransitionDescription get() = text("按歌曲调性/BPM/小节/能量自动选择接歌点与过渡方式；变速只作用于 incoming renderer。",
-        "Intelligent crossfade with tempo/key matching and beat-matched speed adjustment. Experimental; requires Apple Music 7.0.0-beta.")
+    val autoTransitionDescription get() = text("按歌曲调性/BPM/小节/能量自动选择接歌点与过渡方式；变速只作用于 incoming renderer。开启自动过渡需关闭 Apple Music 交叉渐入渐出功能，否则无法生效。",
+        "Intelligent crossfade with tempo/key matching and beat-matched speed adjustment. Experimental; requires Apple Music 7.0.0-beta. Turn off Apple Music's Crossfade setting, or Auto-Transition will not take effect.")
     val autoTransitionDuration get() = text("默认淡化时长（秒）", "Default crossfade duration (seconds)")
     val autoTransitionSpeedMatch get() = text("变速匹配（Beat Match）", "Speed match (Beat Match)")
     val autoTransitionAnimate get() = text("切歌封面过渡动画", "Cover transition animation")
