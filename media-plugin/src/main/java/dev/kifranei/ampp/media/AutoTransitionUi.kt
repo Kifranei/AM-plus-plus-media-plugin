@@ -44,7 +44,7 @@ internal object AutoTransitionUi {
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
                     val view = param.args[0] as? View ?: return
-                    main.post { injectButton(view, packageName) }
+                    scheduleInject(view, packageName)
                 }
             }, scope)
             runCatching {
@@ -105,11 +105,21 @@ internal object AutoTransitionUi {
         }
     }
 
-    private fun injectButton(root: View, packageName: String) {
+    /** Queue pages often exist before the 3-button row is laid out; retry until it is ready. */
+    private fun scheduleInject(root: View, packageName: String, attempt: Int = 0) {
+        main.postDelayed({
+            if (root.findViewWithTag<View>(TAG_MARKER) == null && !injectButton(root, packageName) &&
+                attempt < 20) {
+                scheduleInject(root, packageName, attempt + 1)
+            }
+        }, if (attempt == 0) 0L else 120L)
+    }
+
+    private fun injectButton(root: View, packageName: String): Boolean {
         // 清除所有旧版本残留按钮（可能有多个）
         root.findViewWithTag<View>(TAG_MARKER)?.let { (it.parent as? ViewGroup)?.removeView(it) }
 
-        if (root.findViewWithTag<View>(TAG_MARKER) != null) return
+        if (root.findViewWithTag<View>(TAG_MARKER) != null) return true
         val context = root.context
         val dp = { v: Int -> TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), context.resources.displayMetrics).toInt() }
         val screenHeight = context.resources.displayMetrics.heightPixels
@@ -150,7 +160,7 @@ internal object AutoTransitionUi {
         }
         if (container == null || container !is LinearLayout || container.childCount < 3) {
             FileLogger.log("UI container not found/invalid (shuffle/repeat ids: $shuffleId/$repeatId, container=${container?.javaClass?.simpleName})")
-            return
+            return false
         }
 
         // 直接复用 Apple Music 原生 layout_player_button（MaterialCardView + ripple），
@@ -209,6 +219,7 @@ internal object AutoTransitionUi {
         val index = container.indexOfChild(anchor)
         if (index >= 0) container.addView(pill, index + 1) else container.addView(pill)
         FileLogger.log("UI button injected into ${container.javaClass.simpleName} after ${anchor?.javaClass?.simpleName}")
+        return true
     }
 
     private fun injectPlayerButton(root: View, packageName: String) {
