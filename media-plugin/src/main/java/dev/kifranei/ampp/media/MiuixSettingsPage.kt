@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,50 +59,28 @@ internal fun MiuixSettingsPage(
     val styleLabels = listOf(text.popupStyleBottomBar, text.popupStyleMoreMenu, text.popupStyleNoFrost)
     val currentStyleIndex = styles.indexOf(state.popupGlassStyle).coerceAtLeast(0)
 
-    val activity = LocalContext.current.findActivity()
-    val scrollBehavior = MiuixScrollBehavior()
+    val listState = rememberLazyListState()
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            if (listState.firstVisibleItemIndex > 0) 1f
+            else (listState.firstVisibleItemScrollOffset / 220f).coerceIn(0f, 1f)
+        }.collect { fraction ->
+            runCatching {
+                Class.forName("dev.amenhancer.module.ui.PluginSettingsScrollBridge")
+                    .getMethod("report", Float::class.javaPrimitiveType)
+                    .invoke(null, fraction)
+            }
+        }
+    }
     MiuixTheme(colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MiuixTheme.colorScheme.surface,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            topBar = {
-                TopAppBar(
-                    title = text.name,
-                    largeTitle = text.name,
-                    navigationIcon = {
-                        IconButton(onClick = {
-                            activity?.let { act ->
-                                // Prefer the host's own close bridge; fall back to the
-                                // dispatcher, never to Activity.onBackPressed() (which
-                                // would finish Apple Music).
-                                runCatching {
-                                    Class.forName("dev.amenhancer.module.ui.PluginSettingsBackBridge")
-                                        .getMethod("close")
-                                        .invoke(null)
-                                }.onFailure {
-                                    runCatching {
-                                        val dispatcher = act.javaClass.methods
-                                            .firstOrNull { it.name == "getOnBackPressedDispatcher" }
-                                            ?.invoke(act)
-                                            ?: return@runCatching
-                                        dispatcher.javaClass.methods
-                                            .firstOrNull { it.name == "onBackPressed" }
-                                            ?.invoke(dispatcher)
-                                    }
-                                }
-                            }
-                        }) {
-                            Text(text = "←", style = TextStyle(fontSize = 24.sp))
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    defaultWindowInsetsPadding = false,
-                )
-            },
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).nestedScroll(scrollBehavior.nestedScrollConnection),
+                state = listState,
+                modifier = Modifier.fillMaxSize().padding(padding),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
