@@ -213,7 +213,24 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
                 volume.setNativeProgressColors(fill, track)
             }
         }
+        /** Copy the exact rendered track pixel from the native time bar. */
+        private fun sampleNativeTrackColor() {
+            val bar = nativeProgressBar ?: return
+            if (bar.width <= 0 || bar.height <= 0 || !bar.isShown) return
+            runCatching {
+                val bmp = Bitmap.createBitmap(bar.width, bar.height, Bitmap.Config.ARGB_8888)
+                bar.draw(Canvas(bmp))
+                val y = (bar.height / 2).coerceIn(0, bar.height - 1)
+                val max = bar.max.coerceAtLeast(1)
+                val fraction = (bar.progress.toFloat() / max).coerceIn(0f, 1f)
+                val fillX = (bar.width * fraction * 0.5f).toInt().coerceIn(0, bar.width - 1)
+                val fill = bmp.getPixel(fillX, y) or 0xFF000000.toInt()
+                volume.setNativeProgressColors(fill, 0)
+                volume.setNativeTrackBitmap(bmp)
+            }
+        }
         fun update() {
+            sampleNativeTrackColor()
             fun hide() { volume.visibility = View.INVISIBLE; volume.setPageVisible(false) }
             fun hold() {
                 val source = holdColumn.source?.takeIf(View::isAttachedToWindow)
