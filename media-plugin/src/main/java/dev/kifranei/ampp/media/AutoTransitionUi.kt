@@ -70,6 +70,14 @@ internal object AutoTransitionUi {
             ?.let { it as? android.content.res.ColorStateList }?.defaultColor
     }.getOrNull() ?: Color.TRANSPARENT
 
+    /** Exact on-screen color of a native button (includes its translucency). */
+    private fun renderedColor(view: View): Int = runCatching {
+        if (view.width <= 0 || view.height <= 0) return 0
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        bitmap.getPixel(view.width / 2, view.height / 2)
+    }.getOrDefault(0)
+
     private fun setCardActive(view: View, active: Boolean, activeBg: Int, inactiveBg: Int,
                              activeBgDrawable: android.graphics.drawable.Drawable?,
                              inactiveBgDrawable: android.graphics.drawable.Drawable?,
@@ -148,23 +156,23 @@ internal object AutoTransitionUi {
             val id = context.resources.getIdentifier(name, "color", packageName)
             if (id != 0) context.resources.getColor(id, context.theme) else fallback
         }.getOrDefault(fallback)
-        val activeBg = cardColor(activeSource ?: container).takeIf { it != 0 }
+        // Copy the exact on-screen material of the native button directly to the left
+        // (infinity), not the active/inactive samples of unrelated buttons.
+        val neighbor = nativeChildren.lastOrNull()
+        val neighborIcon = neighbor
+            ?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
+            ?.imageTintList?.defaultColor
+            ?: neighbor?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
+                ?.imageTintList?.defaultColor
+            ?: Color.BLACK
+        val neighborBg = neighbor?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 }
+            ?: cardColor(neighbor ?: container).takeIf { it != 0 }
             ?: vibrant("player_vibrant_secondary", Color.parseColor("#D6E2FF"))
-        val inactiveBg = cardColor(inactiveSource ?: container).takeIf { it != 0 }
-            ?: vibrant("player_vibrant_quarternary", Color.parseColor("#14FFFFFF"))
-        val activeBgDrawable = activeSource?.background?.constantState?.newDrawable()?.mutate()
-        val inactiveBgDrawable = inactiveSource?.background?.constantState?.newDrawable()?.mutate()
-        val activeIcon = nativeChildren.firstOrNull { it.isActivated }
-            ?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
-            ?.imageTintList?.defaultColor ?: Color.BLACK
-        val inactiveIcon = nativeChildren.getOrNull(1)
-            ?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
-            ?.imageTintList?.defaultColor ?: Color.WHITE
-        FileLogger.log("UI native colors activeBg=$activeBg inactiveBg=$inactiveBg activeIcon=$activeIcon inactiveIcon=$inactiveIcon")
+        FileLogger.log("UI native colors neighborBg=$neighborBg neighborIcon=$neighborIcon")
         val pill: View = AutoMixPillView(context).apply {
             tag = TAG_MARKER
-            setNativeColors(activeBg, inactiveBg)
-            setNativeBackgrounds(activeBgDrawable, inactiveBgDrawable)
+            setNativeColors(neighborBg, neighborBg)
+            setNativeIcon(neighborIcon)
             active = enabled
             setOnClickListener {
                 enabled = !enabled
@@ -289,11 +297,14 @@ internal class AutoMixPillView(context: Context) : View(context) {
         set(value) { field = value; invalidate() }
     private var activeColor = Color.parseColor("#74FFFFFF")
     private var inactiveColor = Color.parseColor("#15FFFFFF")
+    private var nativeIcon = Color.BLACK
     private var activeDrawable: android.graphics.drawable.Drawable? = null
     private var inactiveDrawable: android.graphics.drawable.Drawable? = null
     fun setNativeColors(activeBg: Int, inactiveBg: Int) {
         activeColor = activeBg; inactiveColor = inactiveBg; invalidate()
     }
+
+    fun setNativeIcon(color: Int) { nativeIcon = color; invalidate() }
     fun setNativeBackgrounds(active: android.graphics.drawable.Drawable?, inactive: android.graphics.drawable.Drawable?) {
         activeDrawable = active; inactiveDrawable = inactive; invalidate()
     }
@@ -371,7 +382,7 @@ internal class AutoMixPillView(context: Context) : View(context) {
         val cx = width / 2f
         val c1 = cx - r * 0.55f
         val c2 = cx + r * 0.55f
-        val icon = if (active) Color.BLACK else Color.WHITE
+        val icon = nativeIcon
         // 左圆：细描边，半透明
         stroke.color = (icon and 0x00FFFFFF) or (0x99 shl 24)
         stroke.strokeWidth = r * 0.22f
