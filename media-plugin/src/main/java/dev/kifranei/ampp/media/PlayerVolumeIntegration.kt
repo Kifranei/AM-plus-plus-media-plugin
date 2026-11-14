@@ -181,10 +181,7 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             val bar = controls.asSequence().flatMap { it.progress.asSequence() }
                 .mapNotNull(::findProgressBar).firstOrNull()
             nativeProgressBar = bar
-            val fill = bar?.progressTintList?.defaultColor ?: 0
-            val track = bar?.progressBackgroundTintList?.defaultColor ?: 0
-            volume.setNativeProgressColors(fill, track)
-            nativeProgressBar?.progressDrawable?.constantState?.newDrawable()?.mutate()?.let(volume::setNativeProgressDrawable)
+            nativeProgressBar = bar
         }
         private fun opacity(controls: Controls): Float? {
             val play = controls.transports.first()
@@ -202,7 +199,11 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
                 val max = bar.max.coerceAtLeast(1)
                 val fraction = (bar.progress.toFloat() / max).coerceIn(0f, 1f)
                 val y = (bar.height / 2).coerceIn(0, bar.height - 1)
-                val fillX = (bar.width * fraction * 0.5f).toInt().coerceIn(0, bar.width - 1)
+                val fillX = if (fraction > 0.02f) {
+                    (bar.width * fraction * 0.5f).toInt().coerceIn(0, bar.width - 1)
+                } else {
+                    (bar.width * 0.5f).toInt().coerceIn(0, bar.width - 1)
+                }
                 val trackX = (bar.width * 0.98f).toInt().coerceIn(0, bar.width - 1)
                 // The native progress bar is translucent over the player gradient.
                 // Sample the composited pixel and make it opaque, otherwise the
@@ -213,7 +214,6 @@ internal class PlayerVolumeIntegration(private val build: TargetBuild) {
             }
         }
         fun update() {
-            sampleNativeProgressColors()
             fun hide() { volume.visibility = View.INVISIBLE; volume.setPageVisible(false) }
             fun hold() {
                 val source = holdColumn.source?.takeIf(View::isAttachedToWindow)
