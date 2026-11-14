@@ -97,6 +97,16 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
             .onFailure { MediaRuntime.log("player_volume: unable to set media volume", it) }
         refresh() // Read back the actual value, including safe-volume/fixed-device limits.
     }
+
+    /**
+     * Use the same player colors as the native seek bar / queue buttons:
+     * filled track = player_seekbar_color (player_vibrant_secondary),
+     * empty track = player_progress_path_color (player_vibrant_tertiary).
+     */
+    private fun playerColor(name: String, fallback: Int): Int = runCatching {
+        val id = resources.getIdentifier(name, "color", context.packageName)
+        if (id != 0) resources.getColor(id, context.theme) else fallback
+    }.getOrDefault(fallback)
     private fun seek(x: Float) {
         val left = 40 * density
         val right = width - 40 * density
@@ -108,16 +118,20 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
         val left = 40 * density
         val right = width - 40 * density
         val radius = (if (dragging) 5f else 3f) * density
-        paint.style = Paint.Style.FILL; paint.color = Color.WHITE
-        paint.alpha = if (isEnabled) 52 else 28
+        val filledColor = playerColor("player_seekbar_color", Color.argb(115, 255, 255, 255))
+        val trackColor = playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
+        paint.style = Paint.Style.FILL
+        paint.color = trackColor
+        paint.alpha = if (isEnabled) Color.alpha(trackColor) else (Color.alpha(trackColor) / 2)
         canvas.drawRoundRect(left, center - radius, right, center + radius, radius, radius, paint)
         val filled = left + (right - left) * PlayerVolumeGeometry.fraction(level, minimum, maximum)
-        paint.alpha = if (isEnabled) 195 else 75
+        paint.color = filledColor
+        paint.alpha = if (isEnabled) Color.alpha(filledColor) else (Color.alpha(filledColor) / 2)
         if (filled > left) canvas.drawRoundRect(left, center - radius, filled, center + radius, radius, radius, paint)
         fun icon(x: Float, path: Path) {
             val save = canvas.save()
             canvas.translate(x, center - 12 * density); canvas.scale(density, density)
-            paint.alpha = 170; paint.style = Paint.Style.FILL
+            paint.alpha = 255; paint.style = Paint.Style.FILL; paint.color = Color.WHITE
             canvas.drawPath(path, paint)
             canvas.restoreToCount(save)
         }
