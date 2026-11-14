@@ -1,6 +1,10 @@
 package dev.kifranei.ampp.media
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,10 +21,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -48,14 +56,50 @@ internal fun MiuixSettingsPage(
     val styleLabels = listOf(text.popupStyleBottomBar, text.popupStyleMoreMenu, text.popupStyleNoFrost)
     val currentStyleIndex = styles.indexOf(state.popupGlassStyle).coerceAtLeast(0)
 
+    val activity = LocalContext.current.findActivity()
+    val scrollBehavior = MiuixScrollBehavior()
     MiuixTheme(colors = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             containerColor = MiuixTheme.colorScheme.surface,
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
+            topBar = {
+                TopAppBar(
+                    title = text.name,
+                    largeTitle = text.name,
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            activity?.let { act ->
+                                // Prefer the host's own close bridge; fall back to the
+                                // dispatcher, never to Activity.onBackPressed() (which
+                                // would finish Apple Music).
+                                runCatching {
+                                    Class.forName("dev.amenhancer.module.ui.PluginSettingsBackBridge")
+                                        .getMethod("close")
+                                        .invoke(null)
+                                }.onFailure {
+                                    runCatching {
+                                        val dispatcher = act.javaClass.methods
+                                            .firstOrNull { it.name == "getOnBackPressedDispatcher" }
+                                            ?.invoke(act)
+                                            ?: return@runCatching
+                                        dispatcher.javaClass.methods
+                                            .firstOrNull { it.name == "onBackPressed" }
+                                            ?.invoke(dispatcher)
+                                    }
+                                }
+                            }
+                        }) {
+                            Text(text = "←", style = TextStyle(fontSize = 24.sp))
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                    defaultWindowInsetsPadding = false,
+                )
+            },
         ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding),
+                modifier = Modifier.fillMaxSize().padding(padding).nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -250,4 +294,13 @@ internal fun MiuixSettingsPage(
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current: Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }
