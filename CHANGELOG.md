@@ -15,6 +15,7 @@ Official release: works with the full-screen plugin settings page in AM++ 1.6.9 
 - 新增「状态栏歌词（魅族 Ticker）」「媒体通知歌词」「SuperLyric 投递」「Lyric Getter 投递」设置项，跟随上游 1.3.5 / Adds the Meizu Ticker, media notification, SuperLyric and Lyric Getter settings from upstream 1.3.5.
 - AutoMix 自动过渡、变速匹配和切歌封面过渡保持 / AutoMix transition, beat match and cover transition are retained.
 - 自动过渡说明补充：「开启自动过渡需关闭 Apple Music 交叉渐入渐出功能，否则无法生效」 / Adds the note that Auto-Transition requires Apple Music Crossfade to be off.
+- 插件设置页大标题上滑折叠、返回按钮走 Miuix 页面退出动画 / Collapsing plugin-settings title on scroll and Miuix page-exit animation for the back button.
 
 更新日志 / Changelog: [CHANGELOG.md](https://github.com/Kifranei/AM-plus-plus-media-plugin/blob/v1.3.6/CHANGELOG.md)
 
