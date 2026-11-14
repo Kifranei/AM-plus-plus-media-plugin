@@ -16,6 +16,8 @@ Official release: works with the full-screen plugin settings page in AM++ 1.6.9 
 - AutoMix 自动过渡、变速匹配和切歌封面过渡保持 / AutoMix transition, beat match and cover transition are retained.
 - 自动过渡说明补充：「开启自动过渡需关闭 Apple Music 交叉渐入渐出功能，否则无法生效」 / Adds the note that Auto-Transition requires Apple Music Crossfade to be off.
 - 插件设置页大标题上滑折叠、返回按钮走 Miuix 页面退出动画 / Collapsing plugin-settings title on scroll and Miuix page-exit animation for the back button.
+- 播放页音量条改用原生播放进度条取色（`player_seekbar_color` / `player_progress_path_color`），保留原生 alpha，音量填充与轨道可见 / Player volume bar now uses the native seek-bar colors and alpha.
+- 队列页自动过渡按钮改用相邻原生按钮的实时激活/未激活颜色，移除固定叠加色 / AutoMix queue button uses the live native active/inactive colors, with no hardcoded tint overlay.
 
 更新日志 / Changelog: [CHANGELOG.md](https://github.com/Kifranei/AM-plus-plus-media-plugin/blob/v1.3.6/CHANGELOG.md)
 
