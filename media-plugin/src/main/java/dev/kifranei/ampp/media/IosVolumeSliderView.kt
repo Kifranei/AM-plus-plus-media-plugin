@@ -37,6 +37,15 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
     private var minimum = 0
     private var maximum = 0
     private var level = -1
+    private var nativeFilled = 0
+    private var nativeTrack = 0
+    fun setNativeProgressColors(filled: Int, track: Int) {
+        if (filled != 0 || track != 0) {
+            nativeFilled = filled
+            nativeTrack = track
+            invalidate()
+        }
+    }
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) { refresh() }
     }
@@ -118,8 +127,10 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
         val left = 40 * density
         val right = width - 40 * density
         val radius = (if (dragging) 5f else 3f) * density
-        val filledColor = playerColor("player_seekbar_color", Color.argb(115, 255, 255, 255))
-        val trackColor = playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
+        val filledColor = nativeFilled.takeIf { it != 0 }
+            ?: playerColor("player_seekbar_color", Color.argb(115, 255, 255, 255))
+        val trackColor = nativeTrack.takeIf { it != 0 }
+            ?: playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
         paint.style = Paint.Style.FILL
         paint.color = trackColor
         paint.alpha = if (isEnabled) Color.alpha(trackColor) else (Color.alpha(trackColor) / 2)
