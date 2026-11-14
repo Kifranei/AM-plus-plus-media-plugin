@@ -39,10 +39,18 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
     private var level = -1
     private var nativeFilled = 0
     private var nativeTrack = 0
+    private var nativeProgressDrawable: android.graphics.drawable.Drawable? = null
     fun setNativeProgressColors(filled: Int, track: Int) {
         if (filled != 0 || track != 0) {
             nativeFilled = filled
             nativeTrack = track
+            invalidate()
+        }
+    }
+
+    fun setNativeProgressDrawable(drawable: android.graphics.drawable.Drawable?) {
+        if (drawable != null) {
+            nativeProgressDrawable = drawable
             invalidate()
         }
     }
@@ -131,14 +139,24 @@ internal class IosVolumeSliderView(context: Context) : View(context), AutoClosea
             ?: playerColor("player_seekbar_color", Color.argb(115, 255, 255, 255))
         val trackColor = nativeTrack.takeIf { it != 0 }
             ?: playerColor("player_progress_path_color", Color.argb(46, 255, 255, 255))
-        paint.style = Paint.Style.FILL
-        paint.color = trackColor
-        paint.alpha = if (isEnabled) Color.alpha(trackColor) else (Color.alpha(trackColor) / 2)
-        canvas.drawRoundRect(left, center - radius, right, center + radius, radius, radius, paint)
-        val filled = left + (right - left) * PlayerVolumeGeometry.fraction(level, minimum, maximum)
-        paint.color = filledColor
-        paint.alpha = if (isEnabled) Color.alpha(filledColor) else (Color.alpha(filledColor) / 2)
-        if (filled > left) canvas.drawRoundRect(left, center - radius, filled, center + radius, radius, radius, paint)
+        val fraction = PlayerVolumeGeometry.fraction(level, minimum, maximum)
+        val drawable = nativeProgressDrawable
+        if (drawable != null) {
+            // Use the native seek-bar drawable itself: every color, alpha and state
+            // is rendered by Apple Music, including the filled/track layers.
+            drawable.setBounds(left.toInt(), (center - radius).toInt(), right.toInt(), (center + radius).toInt())
+            drawable.level = (fraction * 10000).toInt().coerceIn(0, 10000)
+            drawable.draw(canvas)
+        } else {
+            paint.style = Paint.Style.FILL
+            paint.color = trackColor
+            paint.alpha = if (isEnabled) Color.alpha(trackColor) else (Color.alpha(trackColor) / 2)
+            canvas.drawRoundRect(left, center - radius, right, center + radius, radius, radius, paint)
+            val filled = left + (right - left) * fraction
+            paint.color = filledColor
+            paint.alpha = if (isEnabled) Color.alpha(filledColor) else (Color.alpha(filledColor) / 2)
+            if (filled > left) canvas.drawRoundRect(left, center - radius, filled, center + radius, radius, radius, paint)
+        }
         fun icon(x: Float, path: Path) {
             val save = canvas.save()
             canvas.translate(x, center - 12 * density); canvas.scale(density, density)
