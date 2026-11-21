@@ -844,7 +844,7 @@
         "invocationOnly": true
       },
       "content-download-glyph-bounds": {
-        "owner": "z1.Q",
+        "owner": "z1.N",
         "name": "b",
         "parameters": [
           "int"
@@ -891,26 +891,26 @@
         "static": false
       },
       "content-download-lyrics-online-loader": {
-        "owner": "com.apple.android.music.ttml.e",
+        "owner": "com.apple.android.music.ttml.f",
         "name": "e",
         "parameters": [
           "long",
           "[Ljava.lang.String;",
           "long",
           "[Ljava.lang.String;",
-          "hi.c"
+          "gi.c"
         ],
         "returns": "java.io.Serializable",
         "static": false
       },
       "content-download-lyrics-file-loader": {
-        "owner": "com.apple.android.music.ttml.e",
+        "owner": "com.apple.android.music.ttml.f",
         "name": "f",
         "parameters": [
           "java.lang.String",
           "long",
           "long",
-          "Ub.s0"
+          "S/M0"
         ],
         "returns": "com.apple.android.music.ttml.javanative.model.SongInfo$SongInfoPtr",
         "static": true
@@ -955,7 +955,7 @@
         "static": false
       },
       "content-download-compose-album-create-view": {
-        "owner": "Xb.e",
+        "owner": "Yb.e",
         "name": "onCreateView",
         "parameters": [
           "android.view.LayoutInflater",
@@ -983,8 +983,8 @@
         "type": "boolean"
       },
       "song-sharing-item": {
-        "owner": "com.apple.android.music.common.actionsheet.T",
-        "name": "T",
+        "owner": "com.apple.android.music.common.actionsheet.U",
+        "name": "U",
         "type": "com.apple.android.music.model.CollectionItemView"
       },
       "lyrics-current-item-field": {
@@ -1133,17 +1133,17 @@
         "type": "android.animation.ValueAnimator"
       },
       "content-download-loader-song-id": {
-        "owner": "com.apple.android.music.ttml.d",
+        "owner": "com.apple.android.music.ttml.e",
         "name": "a",
         "type": "long"
       },
       "content-download-loader-resume-label": {
-        "owner": "com.apple.android.music.ttml.d",
+        "owner": "com.apple.android.music.ttml.e",
         "name": "e",
         "type": "int"
       },
       "content-download-semantics-key-name": {
-        "owner": "w1.K",
+        "owner": "w1.a",
         "name": "a",
         "type": "java.lang.String"
       },
@@ -1155,7 +1155,7 @@
       "content-download-semantics-action": {
         "owner": "w1.a",
         "name": "b",
-        "type": "bi.f"
+        "type": "ai.f"
       },
       "content-download-rect-left": {
         "owner": "U0.d",
