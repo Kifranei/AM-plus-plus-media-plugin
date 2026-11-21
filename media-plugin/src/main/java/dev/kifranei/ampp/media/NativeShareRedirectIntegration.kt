@@ -15,33 +15,23 @@ import android.widget.Toast
 internal class NativeShareRedirectIntegration(private val build: TargetBuild, private val loader: ClassLoader) : PlayerShareCardTarget {
     override fun install(): TargetCapabilityInstall {
         val scope = PluginScope()
-        val targets = listOf(
-            "com.apple.android.music.common.actionsheet.S",
-            "com.apple.android.music.common.actionsheet.lyrics.ShareLyricsActionSheetFragment",
-        )
-        var hooked = 0
         try {
-            for (name in targets) {
-                val type = runCatching { loader.loadClass(name) }.getOrNull() ?: continue
-                val method = runCatching {
-                    type.getDeclaredMethod("onCreateView", android.view.LayoutInflater::class.java,
-                        android.view.ViewGroup::class.java, android.os.Bundle::class.java)
-                }.getOrNull() ?: continue
-                check(MediaRuntime.observeMethod(method, object : PluginMethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val view = param.result as? View ?: return
-                        if (param.throwable != null) return
-                        view.postDelayed({ redirect(view) }, 700L)
-                    }
-                }, scope))
-                hooked++
-            }
-            if (hooked == 0) {
-                scope.close()
-                return TargetCapabilityInstall.Unsupported("No native share fragment for ${build.displayName}")
-            }
+            val type = runCatching {
+                loader.loadClass("com.apple.android.music.common.actionsheet.lyrics.ShareLyricsActionSheetFragment\$e")
+            }.getOrNull() ?: return TargetCapabilityInstall.Unsupported("No lyrics share handler for ${build.displayName}")
+            val method = runCatching {
+                type.getDeclaredMethod("z", Int::class.javaPrimitiveType, View::class.java,
+                    loader.loadClass("com.apple.android.music.model.CollectionItemView"))
+            }.getOrNull() ?: return TargetCapabilityInstall.Unsupported("No lyrics share action for ${build.displayName}")
+            check(MediaRuntime.observeMethod(method, object : PluginMethodHook() {
+                override fun beforeHookedMethod(param: MethodHookParam) {
+                    val clicked = param.args.getOrNull(1) as? View ?: return
+                    redirect(clicked.rootView)
+                    param.result = null
+                }
+            }, scope))
             scope.activate()
-            return TargetCapabilityInstall.Active("Song and lyrics share pages open the Android system share sheet")
+            return TargetCapabilityInstall.Active("Lyrics share uses the Android system share sheet")
         } catch (error: Throwable) {
             scope.close()
             throw error
