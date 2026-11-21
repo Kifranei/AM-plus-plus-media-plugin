@@ -26,7 +26,7 @@ internal class PlayerCardShareIntegration(private val build: TargetBuild) : Play
             val artworkId = root.resources.getIdentifier("artwork_image", "id", build.packageName)
             val artwork = if (artworkId != 0) root.findViewById<View>(artworkId) else null
             val listener = View.OnLongClickListener {
-                shareCard(root.rootView, app)
+                shareCard(root, app)
                 true
             }
             artwork?.let { it.isLongClickable = true; it.setOnLongClickListener(listener) }
