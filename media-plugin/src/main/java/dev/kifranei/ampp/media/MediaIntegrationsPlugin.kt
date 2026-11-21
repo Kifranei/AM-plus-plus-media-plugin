@@ -115,6 +115,7 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         install(text.sharing, configured.sharing, "shared:applemusic-lyric-share-image") {
             CardSharingFeature().install(CardSharingIntegration(app, loader, build))
         }
+
         install(text.sharing, configured.sharing, "shared:applemusic-share-card") {
             NativeShareRedirectIntegration(build, loader).install()
         }
