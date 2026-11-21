@@ -1832,11 +1832,11 @@
     "outsideId": "action_sheet_outside"
   },
   "playerDialogs": {
-    "confirmationFragmentClass": "com.apple.android.music.commerce.fragments.c",
+    "confirmationFragmentClass": "com.apple.android.music.commerce.fragments.b",
     "confirmationMessageId": "message",
     "confirmationTitleId": "title",
     "confirmationButtonsId": "buttons_container",
-    "sleepFragmentClass": "com.apple.android.music.common.actionsheet.b0",
+    "sleepFragmentClass": "com.apple.android.music.common.actionsheet.d0",
     "sleepListId": "action_sheet_list",
     "sleepTitleId": "item_actionsheet_title",
     "deleteLabel": "delete_from_library",
