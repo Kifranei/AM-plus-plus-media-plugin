@@ -34,9 +34,9 @@
       1,
       36
     ],
-    "sourceClass": "com.apple.android.music.common.actionsheet.U",
+    "sourceClass": "com.apple.android.music.common.actionsheet.V",
     "sourceListField": "a",
-    "optionClass": "com.apple.android.music.common.actionsheet.U$a",
+    "optionClass": "com.apple.android.music.common.actionsheet.V$a",
     "itemClass": "com.apple.android.music.model.CollectionItemView",
     "viewModelClass": "com.apple.android.music.common.actionsheet.ShareSheetViewModel",
     "rendererMethod": "subscribeToSharePlatformIntent",
