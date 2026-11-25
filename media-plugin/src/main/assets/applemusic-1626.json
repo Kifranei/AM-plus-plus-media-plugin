@@ -991,7 +991,7 @@
       },
       "song-sharing-item": {
         "owner": "com.apple.android.music.common.actionsheet.U",
-        "name": "U",
+        "name": "T",
         "type": "com.apple.android.music.model.CollectionItemView"
       },
       "lyrics-current-item-field": {
@@ -1006,7 +1006,7 @@
       },
       "player-page-callback": {
         "owner": "com.apple.android.music.player.fragment.PlayerMainFragment",
-        "name": "b0",
+        "name": "a0",
         "type": "com.apple.android.music.player.fragment.PlayerMainFragment$i"
       },
       "player-page-progress-value": {
@@ -1021,7 +1021,7 @@
       },
       "player-page-behavior-state": {
         "owner": "com.google.android.material.bottomsheet.BottomSheetBehavior",
-        "name": "o0",
+        "name": "n0",
         "type": "int"
       },
       "player-motion-outline-progress": {
@@ -1191,7 +1191,7 @@
       },
       "player-artwork-size-animation": {
         "owner": "com.apple.android.music.player.fragment.m",
-        "name": "U",
+        "name": "T",
         "type": "android.animation.AnimatorSet"
       }
     }
