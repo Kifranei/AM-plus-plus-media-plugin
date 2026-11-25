@@ -1093,6 +1093,13 @@
         ],
         "returns": "android.view.View",
         "static": false
+      },
+      "content-download-artist-query-entity": {
+        "owner": "com.apple.android.music.profiles2.ArtistViewModel",
+        "name": "getQueryEntity",
+        "parameters": [],
+        "returns": "com.apple.android.music.mediaapi.models.MediaEntity",
+        "static": false
       }
     },
     "fieldContracts": {
