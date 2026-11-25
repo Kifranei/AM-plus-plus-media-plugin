@@ -116,6 +116,7 @@ internal class ContentDownloadsIntegration(
             observe("content-download-artist-create-header", lifetime) { call ->
                 if (call.throwable == null && artistModelType.isInstance(call.thisObject)) enqueueEntity(call.args.firstOrNull())
             }
+
             installStage = "hook content-download-album-set-data"
             observe("content-download-album-set-data", lifetime) { call ->
                 if (call.throwable == null) enqueueEntity(call.args.firstOrNull())
@@ -280,8 +281,16 @@ internal class ContentDownloadsIntegration(
                         addView(nativeRoot, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
                     }.also { param.result = it }
                 }
+                MediaRuntime.log("content_download: page hooked kind=$kind owner=${owner.javaClass.name}")
                 surfaces.remove(owner)?.close()
-                surfaces[owner] = PageSurface(owner, frame, kind).also { it.attach() }
+                val surface = PageSurface(owner, frame, kind).also { it.attach() }
+                surfaces[owner] = surface
+                if (kind == ContentDownloadPageKind.ARTIST) runCatching {
+                    val model = contracts.call("content-download-artist-model", owner)
+                    val query = runCatching { PluginProfiles.method("content-download-artist-query-entity") }.getOrNull()
+                    val entity = query?.invoke(model)
+                    surface.prime(entity)
+                }
             }
         }, lifetime))
     }
@@ -427,8 +436,15 @@ internal class ContentDownloadsIntegration(
                     root.layoutDirection == View.LAYOUT_DIRECTION_RTL) }
             val held = hold.update(now, computed, if (glyphs == null) (if (anchor.hasNode) "anchor_bounds_unavailable" else "anchor_node_missing") else "placement_rejected")
             held.transition?.let { logAnchor(it) }
-            val shown = held.placement
-            if (shown == null) { button.visibility = View.GONE; return }
+            var shown = held.placement
+            if (shown == null) {
+                if (pageId.isNotEmpty() && kind == ContentDownloadPageKind.ARTIST) {
+                    val size = dp(44)
+                    shown = ContentDownloadButtonPlacement(dp(24), dp(150), size, dp(10), dp(10), dp(24))
+                } else {
+                    button.visibility = View.GONE; return
+                }
+            }
             button.visibility = View.VISIBLE
             val placement: ContentDownloadButtonPlacement = shown
             val params = button.layoutParams as FrameLayout.LayoutParams
@@ -438,6 +454,18 @@ internal class ContentDownloadsIntegration(
             button.translationX = placement.left.toFloat(); button.translationY = placement.top.toFloat()
             button.setPadding(placement.iconLeft, placement.iconTop, placement.size - placement.iconLeft - placement.iconSize,
                 placement.size - placement.iconTop - placement.iconSize)
+        }
+
+        fun prime(entity: Any?) {
+            if (entity == null) return
+            runCatching {
+                val id = contracts.get(entity, "content-download-entity-id") as? String ?: return
+                if (!validContentDownloadId(id)) return
+                val title = (contracts.get(entity, "media-entity-get-title-method") as? String).orEmpty()
+                pageId = id; pageTitle = title
+                enqueueEntity(entity)
+                MediaRuntime.log("content_download: primed artist page $id")
+            }
         }
 
         override fun close() {
