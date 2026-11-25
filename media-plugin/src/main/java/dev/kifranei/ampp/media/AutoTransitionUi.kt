@@ -183,14 +183,21 @@ internal object AutoTransitionUi {
             ?: neighbor?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
                 ?.imageTintList?.defaultColor
             ?: Color.BLACK
-        val neighborBg = cardColor(neighbor ?: container).takeIf { it != 0 }
-            ?: neighbor?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 }
-            ?: vibrant("player_vibrant_secondary", Color.parseColor("#D6E2FF"))
-        FileLogger.log("UI native colors neighborBg=$neighborBg neighborIcon=$neighborIcon")
+        fun viewBg(view: View?): Int = view?.let { cardColor(it).takeIf { c -> c != 0 } ?: renderedColor(it).takeIf { c -> Color.alpha(c) > 0 } } ?: 0
+        val activeBg = viewBg(activeSource).takeIf { it != 0 }
+            ?: vibrant("player_vibrant_primary", Color.parseColor("#F4F4F6"))
+        val inactiveBg = viewBg(inactiveSource).takeIf { it != 0 && it != activeBg }
+            ?: vibrant("player_vibrant_secondary", Color.parseColor("#2EFFFFFF"))
+        fun viewIcon(view: View?): Int = view
+            ?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
+            ?.imageTintList?.defaultColor ?: Color.BLACK
+        val activeIcon = viewIcon(activeSource)
+        val inactiveIcon = viewIcon(inactiveSource)
+        FileLogger.log("UI native colors activeBg=$activeBg inactiveBg=$inactiveBg activeIcon=$activeIcon inactiveIcon=$inactiveIcon")
         val pill: View = AutoMixPillView(context).apply {
             tag = TAG_MARKER
-            setNativeColors(neighborBg, neighborBg)
-            setNativeIcon(neighborIcon)
+            setNativeColors(activeBg, inactiveBg)
+            setNativeIcons(activeIcon, inactiveIcon)
             active = enabled
             setOnClickListener {
                 enabled = !enabled
@@ -317,10 +324,16 @@ internal class AutoMixPillView(context: Context) : View(context) {
     private var activeColor = Color.parseColor("#74FFFFFF")
     private var inactiveColor = Color.parseColor("#15FFFFFF")
     private var nativeIcon = Color.BLACK
+    private var activeIconColor = Color.BLACK
+    private var inactiveIconColor = Color.WHITE
     private var activeDrawable: android.graphics.drawable.Drawable? = null
     private var inactiveDrawable: android.graphics.drawable.Drawable? = null
     fun setNativeColors(activeBg: Int, inactiveBg: Int) {
         activeColor = activeBg; inactiveColor = inactiveBg; invalidate()
+    }
+
+    fun setNativeIcons(activeColor: Int, inactiveColor: Int) {
+        activeIconColor = activeColor; inactiveIconColor = inactiveColor; invalidate()
     }
 
     fun setNativeIcon(color: Int) { nativeIcon = color; invalidate() }
@@ -404,7 +417,7 @@ internal class AutoMixPillView(context: Context) : View(context) {
         val cx = width / 2f
         val c1 = cx - r * 0.55f
         val c2 = cx + r * 0.55f
-        val icon = nativeIcon
+        val icon = if (active) activeIconColor else inactiveIconColor
         // 左圆：细描边，半透明
         stroke.color = (icon and 0x00FFFFFF) or (0x99 shl 24)
         stroke.strokeWidth = r * 0.22f
