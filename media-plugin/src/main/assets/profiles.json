@@ -36,6 +36,11 @@
       "versionName": "7.0.1",
       "versionCode": 1622,
       "asset": "applemusic-1622.json"
+    },
+    {
+      "versionName": "7.0.3",
+      "versionCode": 1626,
+      "asset": "applemusic-1626.json"
     }
   ]
 }
