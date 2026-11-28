@@ -33,7 +33,9 @@ internal data class GlassDialogAction(val label: String, val destructive: Boolea
 internal object BottomBarGlass {
     val blurDp = 4.dp
     val lensDp = 24.dp
-    val container = Color(0xFF121212).copy(alpha = .4f)
+    // Liquid glass: no opaque surface tint; the backdrop refraction + vibrancy
+    // provides the material. The old 40% gray fill made the panel look semi-transparent.
+    val container = Color(0xFF1C1C1E).copy(alpha = .18f)
 }
 
 internal fun com.kyant.backdrop.BackdropEffectScope.bottomBarGlassEffects() {
@@ -45,7 +47,8 @@ internal fun com.kyant.backdrop.BackdropEffectScope.bottomBarGlassEffects() {
 
 /** More-menu material (see GlassPlayerMoreMenu), dark variant: neutral gray 0xFF3A3A3C @ .36, no blue. */
 internal object MoreMenuGlass {
-    val surface = Color(0xFF3A3A3C).copy(alpha = .36f)
+    // Same liquid-glass rule as the bottom bar: no gray surface fill.
+    val surface = Color(0xFF1C1C1E).copy(alpha = .18f)
     val rim = listOf(Color.White.copy(alpha = .28f), Color.White.copy(alpha = .07f), Color.White.copy(alpha = .18f))
 }
 
@@ -73,7 +76,7 @@ internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.
         effects = { bottomBarGlassEffects() }, onDrawSurface = { drawRect(BottomBarGlass.container) })
         .clip(shape)
     PopupGlassStyle.MORE_MENU -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
-        vibrancy(); blur(20.dp.toPx()); lens(10.dp.toPx(), 16.dp.toPx())
+        vibrancy(); blur(24.dp.toPx()); lens(12.dp.toPx(), 20.dp.toPx())
     }, onDrawSurface = { drawRect(MoreMenuGlass.surface) })
     PopupGlassStyle.NO_FROST -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(NoFrostGlass.blurDp.toPx()); lens(NoFrostGlass.lensEdgeDp.toPx(), NoFrostGlass.lensDepthDp.toPx())

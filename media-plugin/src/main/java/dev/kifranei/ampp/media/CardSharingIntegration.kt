@@ -67,6 +67,7 @@ internal class CardSharingIntegration(
         val main = Handler(Looper.getMainLooper())
         val scope = PluginScope()
         val contexts = ThreadLocal.withInitial { ArrayList<SharedCardKind?>() }
+        var addedThisSheet = false
         fun creationStack() = checkNotNull(contexts.get())
         scope.onClose { contexts.remove(); main.removeCallbacksAndMessages(null) }
         fun hook(member: Executable, callback: PluginMethodHook) {
@@ -77,6 +78,7 @@ internal class CardSharingIntegration(
         fun trackCreation(member: Executable, kind: (Any?) -> SharedCardKind?) {
             hook(member, object : PluginMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
+                    if (member == viewCreated) addedThisSheet = false
                     creationStack().add(runCatching { kind(param.thisObject) }.getOrElse {
                         MediaRuntime.log("card_sharing: share sheet classification failed", it); null
                     })
@@ -98,9 +100,11 @@ internal class CardSharingIntegration(
             }
             hook(sourceConstructor, object : PluginMethodHook() {
                 override fun afterHookedMethod(param: MethodHookParam) {
+                    android.util.Log.e("AMPP_SHARE", "sourceConstructor filter=${param.args.getOrNull(2)}")
                     val filter = param.args.getOrNull(2) as? Set<*>
                     val kind = creationStack().lastOrNull() ?: return
-                    if (param.throwable != null || (kind == SharedCardKind.LYRICS && filter?.contains("com.instagram.android") != true)) return
+                    if (param.throwable != null) return
+                    if (addedThisSheet) return
                     @Suppress("UNCHECKED_CAST")
                     val options = sourceList.get(param.thisObject) as MutableList<Any>
                     val context = param.args.firstOrNull() as? Context ?: application
@@ -111,7 +115,9 @@ internal class CardSharingIntegration(
                             if (action.save) kind.saveLabel(language) else if (language == "zh") "分享图片" else "Share image",
                             build.packageName, ""))
                     }
+                    addedThisSheet = true
                     MediaRuntime.log("card_sharing: system share and save actions added to native ${kind.filenameTag} app row")
+                    android.util.Log.e("AMPP_SHARE", "actions added kind=$kind options=${existing.size}")
                 }
             })
             hook(option.getMethod("getIconDrawable"), object : PluginMethodHook() {

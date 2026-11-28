@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /** SDK v1 entry; registration, resources and configuration belong to this ZIP. */
 /** Shown in diagnostics; kept in sync with media-plugin/plugin.json by PluginProfileSelectionTest. */
-internal const val PLUGIN_BUILD = "1.3.9/21"
+internal const val PLUGIN_BUILD = "1.3.8/20"
 
 class MediaIntegrationsPlugin : AmppPlugin() {
     private lateinit var runtime: PluginContext
@@ -114,10 +114,6 @@ class MediaIntegrationsPlugin : AmppPlugin() {
         }
         install(text.sharing, configured.sharing, "shared:applemusic-lyric-share-image") {
             CardSharingFeature().install(CardSharingIntegration(app, loader, build))
-        }
-
-        install(text.sharing, configured.sharing, "shared:applemusic-share-card") {
-            LyricsMoreShareIntegration(build, loader).install()
         }
         install(text.qualityGlass, configured.playerGlass, "shared:applemusic-quality-disclosure") {
             AudioQualityGlassFeature().install(AudioQualityIntegration(app, build))

@@ -35,12 +35,22 @@ internal object HostBackdropCompat {
                 owner.declaredMethods.firstOrNull { m ->
                     val p = m.parameterTypes
                     java.lang.reflect.Modifier.isStatic(m.modifiers) && m.name.startsWith("drawBackdrop-") &&
-                        m.name.endsWith("\$default") && (p.size == 16 || p.size == 17) &&
-                        p[0] == Modifier::class.java && p[1] == Backdrop::class.java &&
+                        m.name.endsWith("\$default") && (p.size in 15..18) &&
+                        p[0].name == "androidx.compose.ui.Modifier" &&
+                        p[1].name == "com.kyant.backdrop.Backdrop" &&
                         p[p.size - 2] == Int::class.javaPrimitiveType && p[p.size - 1] == Any::class.java
                 }?.let { Bridge(it, it.parameterTypes.size - 2) }
-            }.onFailure { MediaRuntime.log("backdrop_compat: resolve failed", it) }.getOrNull()
-            if (bridge == null) MediaRuntime.log("backdrop_compat: no usable drawBackdrop host method; using plain surface")
+            }.onSuccess { MediaRuntime.log("backdrop_compat: resolved host drawBackdrop params=${it?.method?.parameterTypes?.size}") }
+                .onFailure { MediaRuntime.log("backdrop_compat: resolve failed", it) }.getOrNull()
+            if (bridge == null) {
+                MediaRuntime.log("backdrop_compat: no usable drawBackdrop host method; using plain surface")
+                val dump = runCatching {
+                    val owner2 = Class.forName("com.kyant.backdrop.DrawBackdropModifierKt", false, Backdrop::class.java.classLoader)
+                    owner2.declaredMethods.filter { it.name.contains("drawBackdrop") }
+                        .joinToString(" | ") { m -> m.name + "(" + m.parameterTypes.joinToString(",") { it.name } + ")" }
+                }.getOrElse { "dump failed: $it" }
+                FileLogger.log("backdrop_compat: no usable host method; candidates=$dump")
+            }
             resolved = true
             return bridge
         }
@@ -71,20 +81,29 @@ internal object HostBackdropCompat {
         val host = resolve()
         if (host != null) {
             try {
-                val size = host.size
-                val args = arrayOfNulls<Any>(size + 2)
+                val count = host.method.parameterTypes.size
+                val args = arrayOfNulls<Any>(count)
                 val types = host.method.parameterTypes
-                for (i in 0 until size) if (types[i] == Int::class.javaPrimitiveType) args[i] = 0
+                for (i in 0 until count) if (types[i] == Int::class.javaPrimitiveType) args[i] = 0
                     else if (types[i] == Long::class.javaPrimitiveType) args[i] = 0L
                 args[0] = modifier; args[1] = backdrop; args[2] = shape; args[3] = effects
-                val surfaceIndex = size - 2
+                // Current host: [receiver, backdrop, shape, effects, highlight, shadow,
+                // innerShadow, layerBlock, clip(int), layerBackdrop, onDrawSurface,
+                // onDrawBackdrop, onDrawFront, mask(int), marker] => 15 params.
+                val surfaceIndex = if (count >= 18) count - 7 else count - 5
                 args[surfaceIndex] = onDrawSurface
-                args[size] = defaultMask(size, surfaceIndex, hostHighlight)
-                args[size + 1] = null
+                var mask = (1 shl (count - 2)) - 1
+                mask = mask and 0b111.inv()
+                mask = mask and (1 shl (surfaceIndex - 1)).inv()
+                if (!hostHighlight) mask = mask and (1 shl 3).inv()
+                args[count - 2] = mask
+                args[count - 1] = null
+                MediaRuntime.log("backdrop_compat: invoke host drawBackdrop count=$count surface=$surfaceIndex")
+                FileLogger.log("backdrop_compat: invoke count=$count surface=$surfaceIndex")
                 return host.method.invoke(null, *args) as Modifier
             } catch (error: Throwable) {
                 bridge = null
-                if (!logged) { logged = true; MediaRuntime.log("backdrop_compat: host drawBackdrop failed; plain surface", error) }
+                if (!logged) { logged = true; MediaRuntime.log("backdrop_compat: host drawBackdrop failed; plain surface", error); FileLogger.log("backdrop_compat: invoke failed ${error.javaClass.name}: ${error.message}") }
             }
         }
         return modifier.clip(shape()).drawBehind(fallbackSurface)

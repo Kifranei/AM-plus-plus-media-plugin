@@ -130,6 +130,7 @@ internal class ContentDownloadsIntegration(
             installPage("content-download-album-create-view", ContentDownloadPageKind.ALBUM, lifetime)
             installStage = "hook content-download-compose-album-create-view"
             installPage("content-download-compose-album-create-view", ContentDownloadPageKind.ALBUM, lifetime)
+            installComposeAlbumFallback(lifetime)
             installStage = "hook content-download-base-destroy-view"
             check(MediaRuntime.observeMethod(contracts.method("content-download-base-destroy-view"), object : PluginMethodHook() {
                 override fun beforeHookedMethod(param: MethodHookParam) {
@@ -266,6 +267,7 @@ internal class ContentDownloadsIntegration(
     }
 
     private fun installPage(key: String, kind: ContentDownloadPageKind, lifetime: PluginScope) {
+        FileLogger.log("content_download: installPage key=$key kind=$kind")
         check(MediaRuntime.hookMethod(contracts.method(key), object : PluginMethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
                 if (closed || param.throwable != null || Looper.myLooper() != Looper.getMainLooper()) return
@@ -293,6 +295,38 @@ internal class ContentDownloadsIntegration(
                 }
             }
         }, lifetime))
+    }
+
+    /** AlbumPageFragment does not override onCreateView in 1626; hook its inherited onViewCreated. */
+    private fun installComposeAlbumFallback(lifetime: PluginScope) {
+        runCatching {
+            val method = composeAlbumType.getMethod("onViewCreated", View::class.java, android.os.Bundle::class.java)
+            FileLogger.log("content_download: installing compose AlbumPage onViewCreated fallback")
+            MediaRuntime.hookMethod(method, object : PluginMethodHook() {
+                override fun afterHookedMethod(param: MethodHookParam) {
+                    if (closed || param.throwable != null || Looper.myLooper() != Looper.getMainLooper()) return
+                    val owner = param.thisObject ?: return
+                    if (!composeAlbumType.isInstance(owner)) return
+                    val nativeRoot = param.args.getOrNull(0) as? View ?: return
+                    fun mountable(v: View?): Boolean =
+                        v is ViewGroup && v.javaClass.name != "androidx.compose.ui.platform.ComposeView" &&
+                            v.javaClass.name != "androidx.fragment.app.FragmentContainerView"
+                    val parent = nativeRoot.parent as? ViewGroup
+                    val frame: ViewGroup = when {
+                        mountable(nativeRoot) -> nativeRoot as ViewGroup
+                        mountable(parent) -> parent!!
+                        else -> {
+                            val decor = (nativeRoot.context as? android.app.Activity)?.window?.decorView as? ViewGroup
+                            decor ?: return
+                        }
+                    }
+                    surfaces.remove(owner)?.close()
+                    val surface = PageSurface(owner, frame, ContentDownloadPageKind.ALBUM).also { it.attach() }
+                    surfaces[owner] = surface
+                    FileLogger.log("content_download: compose AlbumPage surface attached ${owner.javaClass.name}")
+                }
+            }, lifetime)
+        }.onFailure { FileLogger.log("content_download: compose AlbumPage fallback failed ${it.javaClass.simpleName}: ${it.message}") }
     }
 
     private fun findSurface(kind: ContentDownloadPageKind, id: String) = surfaces.values.firstOrNull { it.kind == kind && it.pageId == id }
@@ -332,7 +366,7 @@ internal class ContentDownloadsIntegration(
     private fun trackDialog(dialog: AlertDialog) { dialogs.add(dialog); dialog.setOnDismissListener { dialogs.remove(dialog) } }
     private fun toast(activity: Activity, message: String) { if (message.isNotEmpty()) Toast.makeText(activity.applicationContext, message, Toast.LENGTH_LONG).show() }
 
-    private inner class PageSurface(owner: Any, private val root: FrameLayout, val kind: ContentDownloadPageKind) : AutoCloseable {
+    private inner class PageSurface(owner: Any, private val root: ViewGroup, val kind: ContentDownloadPageKind) : AutoCloseable {
         private val ownerRef = WeakReference(owner)
         private val anchor = ContentDownloadComposeAnchor(contracts)
         private val artistAnchor = ContentDownloadArtistAnchor(contracts, build.packageName)
@@ -347,6 +381,7 @@ internal class ContentDownloadsIntegration(
         var pageId = ""
             private set
         private var pageTitle = ""
+        private var lastStateLog = ""
         private var removed = false
         private val position = IntArray(2)
         private val button = ImageButton(root.context).apply {
@@ -368,7 +403,7 @@ internal class ContentDownloadsIntegration(
         }
 
         fun attach() {
-            root.addView(button, FrameLayout.LayoutParams(dp(40), dp(40), Gravity.TOP or Gravity.LEFT))
+            root.addView(button, ViewGroup.LayoutParams(dp(40), dp(40)))
             root.viewTreeObserver.addOnPreDrawListener(draw)
             root.addOnLayoutChangeListener(layout)
             refreshMetadata()
@@ -404,13 +439,41 @@ internal class ContentDownloadsIntegration(
             if (entityRef?.get() !== entity) { entityRef = WeakReference(entity); enqueueEntity(entity) }
         }
 
+        private fun findAlbumTitleView(v: View, title: String): TextView? {
+            if (title.isBlank()) return null
+            if (v is TextView && v.visibility == View.VISIBLE && v.text?.toString()?.trim() == title) return v
+            if (v is ViewGroup) for (i in 0 until v.childCount) findAlbumTitleView(v.getChildAt(i), title)?.let { return it }
+            return null
+        }
+
+        private fun discoverAlbumTitle() {
+            // Compose album pages do not expose the known title id. Keep scanning the
+            // current tree for a large top title instead of giving up on the anchor.
+            val candidates = ArrayList<Pair<String, Float>>()
+            fun walk(v: View) {
+                if (v is TextView && v.visibility == View.VISIBLE) {
+                    val t = v.text?.toString()?.trim().orEmpty()
+                    if (t.isNotEmpty() && t.length < 120) candidates += t to v.textSize
+                }
+                if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i))
+            }
+            walk(root)
+            val best = candidates.maxByOrNull { it.second } ?: return
+            pageTitle = best.first
+            FileLogger.log("content_download: album title discovered from tree text=${best.first} size=${best.second} candidates=${candidates.take(12).joinToString(" | ") { it.first }}")
+            MediaRuntime.log("content_download: album fallback title=${best.first}")
+        }
+
         private fun updatePosition() {
             if (removed || closed || root.width <= 0 || root.height <= 0) return
             val now = SystemClock.uptimeMillis()
             if (now - lastLookup >= 500) { lastLookup = now; refreshMetadata() }
-            if (pageId.isEmpty() || kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) {
+            if (pageId.isEmpty()) {
                 hold.reset()?.let { logAnchor(it) }
                 button.visibility = View.GONE; return
+            }
+            if (kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) {
+                discoverAlbumTitle()
             }
             root.getLocationOnScreen(position)
             val nativeGlyphs = if (kind == ContentDownloadPageKind.ALBUM) {
@@ -441,13 +504,33 @@ internal class ContentDownloadsIntegration(
                 if (pageId.isNotEmpty() && kind == ContentDownloadPageKind.ARTIST) {
                     val size = dp(44)
                     shown = ContentDownloadButtonPlacement(dp(24), dp(150), size, dp(10), dp(10), dp(24))
+                } else if (pageId.isNotEmpty() && kind == ContentDownloadPageKind.ALBUM) {
+                    val size = dp(40)
+                    // Place the action immediately right of the album title (not at the top bar).
+                    val titleView = findAlbumTitleView(root, pageTitle)
+                    if (titleView != null) {
+                        button.setImageDrawable(ContentDownloadIcon(titleView.currentTextColor))
+                        val loc = IntArray(2); titleView.getLocationOnScreen(loc)
+                        val rootLoc = IntArray(2); root.getLocationOnScreen(rootLoc)
+                        val x = loc[0] - rootLoc[0] + titleView.width + dp(8)
+                        val y = loc[1] - rootLoc[1] + (titleView.height - size) / 2
+                        shown = ContentDownloadButtonPlacement(x.coerceAtLeast(0), y.coerceAtLeast(0), size, dp(10), dp(10), dp(20))
+                    } else {
+                        button.setImageDrawable(ContentDownloadIcon(Color.WHITE))
+                        shown = ContentDownloadButtonPlacement(
+                            (root.width - size - dp(18)).coerceAtLeast(0), dp(96), size, dp(10), dp(10), dp(20))
+                    }
                 } else {
                     button.visibility = View.GONE; return
                 }
             }
+            if (lastStateLog != "${pageId}|${pageTitle}|${shown.left},${shown.top}") {
+                lastStateLog = "${pageId}|${pageTitle}|${shown.left},${shown.top}"
+                FileLogger.log("content_download: show kind=$kind page=$pageId title=$pageTitle at=${shown.left},${shown.top} size=${root.width}x${root.height}")
+            }
             button.visibility = View.VISIBLE
             val placement: ContentDownloadButtonPlacement = shown
-            val params = button.layoutParams as FrameLayout.LayoutParams
+            val params = button.layoutParams as ViewGroup.LayoutParams
             if (params.width != placement.size || params.height != placement.size) {
                 params.width = placement.size; params.height = placement.size; button.layoutParams = params
             }
