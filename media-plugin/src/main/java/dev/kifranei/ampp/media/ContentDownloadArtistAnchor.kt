@@ -266,7 +266,8 @@ internal class ContentDownloadArtistAnchor(private val contracts: ContentDownloa
         val result = LinkedHashMap<String, Any?>()
         config.take(64).forEach { item ->
             val entry = item as? Map.Entry<*, *> ?: return@forEach
-            val name = contracts.field("content-download-semantics-key-name", entry.key) as? String ?: return@forEach
+            val name = contracts.field("content-download-semantics-key-name", entry.key) as? String
+                ?: entry.key.toString().substringAfterLast('.').substringAfterLast('$')
             if (name in ARTIST_POSITION_PROPERTIES) result[name] = entry.value
         }
         return result

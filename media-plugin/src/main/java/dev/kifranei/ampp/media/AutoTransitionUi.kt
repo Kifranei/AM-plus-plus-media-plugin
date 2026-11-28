@@ -37,6 +37,7 @@ internal object AutoTransitionUi {
     var onToggle: ((Boolean) -> Unit)? = null
 
     fun install(scope: PluginScope, context: Context, packageName: String): Boolean {
+        android.util.Log.e("AMPP_UI", "install begin")
         return try {
             val fragmentCls = Class.forName("com.apple.android.music.player.fragment.NewPlayerQueueViewFragment", false, context.classLoader)
             val onViewCreated = fragmentCls.getMethod("onViewCreated", View::class.java, Bundle::class.java)
@@ -44,9 +45,23 @@ internal object AutoTransitionUi {
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
                     val view = param.args[0] as? View ?: return
+                    android.util.Log.e("AMPP_UI", "fragment onViewCreated view=${view.javaClass.simpleName}")
                     scheduleInject(view, packageName)
                 }
             }, scope)
+            // Queue fragment resume fires every time the queue is shown again,
+            // including cases where onViewCreated had no laid-out row yet.
+            runCatching {
+                val resume = fragmentCls.getMethod("onResume")
+                MediaRuntime.observeMethod(resume, object : PluginMethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        val view = runCatching {
+                            param.thisObject.javaClass.getMethod("getView").invoke(param.thisObject) as? View
+                        }.getOrNull() ?: return
+                        scheduleInject(view, packageName)
+                    }
+                }, scope)
+            }
             runCatching {
                 val playerCls = Class.forName("com.apple.android.music.player.fragment.PlayerMainFragment", false, context.classLoader)
                 val create = playerCls.getMethod("onCreateView", android.view.LayoutInflater::class.java, ViewGroup::class.java, Bundle::class.java)
@@ -55,6 +70,24 @@ internal object AutoTransitionUi {
                         if (param.throwable != null) return
                         val root = param.result as? View ?: return
                         main.post { injectPlayerButton(root, packageName) }
+                    }
+                }, scope)
+            }
+            // Fallback: resume hook re-scans the decor view, so the button appears
+            // even when onViewCreated ran before the native row was laid out.
+            runCatching {
+                val activityCls = Class.forName("android.app.Activity", false, context.classLoader)
+                val onResume = activityCls.getMethod("onResume")
+                MediaRuntime.observeMethod(onResume, object : PluginMethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        val activity = param.thisObject as? android.app.Activity ?: return
+                        if (activity.packageName != packageName) return
+                        android.util.Log.e("AMPP_UI", "activity onResume ${activity.javaClass.simpleName}")
+                        listOf(350L, 900L, 1800L, 3000L).forEach { delay ->
+                            main.postDelayed({
+                                runCatching { injectButton(activity.window.decorView, packageName) }
+                            }, delay)
+                        }
                     }
                 }, scope)
             }
@@ -107,9 +140,13 @@ internal object AutoTransitionUi {
 
     /** Queue pages often exist before the 3-button row is laid out; retry until it is ready. */
     private fun scheduleInject(root: View, packageName: String, attempt: Int = 0) {
+        FileLogger.log("UI schedule attempt=$attempt root=${root.javaClass.simpleName} attached=${root.isAttachedToWindow}")
+        android.util.Log.e("AMPP_UI", "schedule attempt=$attempt attached=${root.isAttachedToWindow} marker=${root.findViewWithTag<View>(TAG_MARKER) != null}")
         main.postDelayed({
-            if (root.findViewWithTag<View>(TAG_MARKER) == null && !injectButton(root, packageName) &&
-                attempt < 20) {
+            val already = root.findViewWithTag<View>(TAG_MARKER) != null
+            val injected = if (already) true else injectButton(root, packageName)
+            android.util.Log.e("AMPP_UI", "attempt=$attempt already=$already injected=$injected")
+            if (!already && !injected && attempt < 50) {
                 scheduleInject(root, packageName, attempt + 1)
             }
         }, if (attempt == 0) 0L else 120L)
@@ -183,21 +220,14 @@ internal object AutoTransitionUi {
             ?: neighbor?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
                 ?.imageTintList?.defaultColor
             ?: Color.BLACK
-        fun viewBg(view: View?): Int = view?.let { cardColor(it).takeIf { c -> c != 0 } ?: renderedColor(it).takeIf { c -> Color.alpha(c) > 0 } } ?: 0
-        val activeBg = viewBg(activeSource).takeIf { it != 0 }
-            ?: vibrant("player_vibrant_primary", Color.parseColor("#F4F4F6"))
-        val inactiveBg = viewBg(inactiveSource).takeIf { it != 0 && it != activeBg }
-            ?: vibrant("player_vibrant_secondary", Color.parseColor("#2EFFFFFF"))
-        fun viewIcon(view: View?): Int = view
-            ?.findViewById<ImageView>(context.resources.getIdentifier("button_off", "id", packageName))
-            ?.imageTintList?.defaultColor ?: Color.BLACK
-        val activeIcon = viewIcon(activeSource)
-        val inactiveIcon = viewIcon(inactiveSource)
-        FileLogger.log("UI native colors activeBg=$activeBg inactiveBg=$inactiveBg activeIcon=$activeIcon inactiveIcon=$inactiveIcon")
+        val neighborBg = cardColor(neighbor ?: container).takeIf { it != 0 }
+            ?: neighbor?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 }
+            ?: vibrant("player_vibrant_secondary", Color.parseColor("#D6E2FF"))
+        FileLogger.log("UI native colors neighborBg=$neighborBg neighborIcon=$neighborIcon")
         val pill: View = AutoMixPillView(context).apply {
             tag = TAG_MARKER
-            setNativeColors(activeBg, inactiveBg)
-            setNativeIcons(activeIcon, inactiveIcon)
+            setNativeColors(neighborBg, inactiveSource?.let(::renderedColor)?.takeIf { Color.alpha(it) > 0 } ?: Color.argb(0x1A, 255, 255, 255))
+            setNativeIcon(neighborIcon)
             active = enabled
             setOnClickListener {
                 enabled = !enabled
@@ -225,7 +255,7 @@ internal object AutoTransitionUi {
         // 插入到洗牌/重复按钮后面
         val index = container.indexOfChild(anchor)
         if (index >= 0) container.addView(pill, index + 1) else container.addView(pill)
-        FileLogger.log("UI button injected into ${container.javaClass.simpleName} after ${anchor?.javaClass?.simpleName}")
+        FileLogger.log("UI button injected into ${container.javaClass.simpleName} after ${anchor?.javaClass?.simpleName} index=${container.indexOfChild(anchor)} childCount=${container.childCount}")
         return true
     }
 
@@ -324,16 +354,10 @@ internal class AutoMixPillView(context: Context) : View(context) {
     private var activeColor = Color.parseColor("#74FFFFFF")
     private var inactiveColor = Color.parseColor("#15FFFFFF")
     private var nativeIcon = Color.BLACK
-    private var activeIconColor = Color.BLACK
-    private var inactiveIconColor = Color.WHITE
     private var activeDrawable: android.graphics.drawable.Drawable? = null
     private var inactiveDrawable: android.graphics.drawable.Drawable? = null
     fun setNativeColors(activeBg: Int, inactiveBg: Int) {
         activeColor = activeBg; inactiveColor = inactiveBg; invalidate()
-    }
-
-    fun setNativeIcons(activeColor: Int, inactiveColor: Int) {
-        activeIconColor = activeColor; inactiveIconColor = inactiveColor; invalidate()
     }
 
     fun setNativeIcon(color: Int) { nativeIcon = color; invalidate() }
@@ -406,7 +430,6 @@ internal class AutoMixPillView(context: Context) : View(context) {
         // to manual painting when no native drawable is available.
         if (background == null) {
             canvas.save(); canvas.clipPath(path)
-            backdrop?.let { canvas.drawBitmap(it, null, RectF(0f, 0f, width.toFloat(), h), Paint(Paint.FILTER_BITMAP_FLAG)) }
             fill.color = bg
             canvas.drawRect(0f, 0f, width.toFloat(), h, fill)
             canvas.restore()
@@ -417,12 +440,12 @@ internal class AutoMixPillView(context: Context) : View(context) {
         val cx = width / 2f
         val c1 = cx - r * 0.55f
         val c2 = cx + r * 0.55f
-        val icon = if (active) activeIconColor else inactiveIconColor
-        // 左圆：细描边，半透明
-        stroke.color = (icon and 0x00FFFFFF) or (0x99 shl 24)
+        // Open: existing native-tinted symbol.
+        // Closed: light lavender ring + white right disc + pill-coloured hole.
+        val icon = if (active) nativeIcon else Color.WHITE
+        stroke.color = if (active) (icon and 0x00FFFFFF) or (0x99 shl 24) else Color.parseColor("#D7DBF0")
         stroke.strokeWidth = r * 0.22f
         canvas.drawCircle(c1, cy, r, stroke)
-        // 右圆：粗甜甜圈，实心外圆 + 背景色内孔
         val donut = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = icon }
         canvas.drawCircle(c2, cy, r, donut)
         val hole = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = bg }

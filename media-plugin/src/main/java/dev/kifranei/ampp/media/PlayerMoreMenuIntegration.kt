@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.RenderEffect
+import android.graphics.Shader
 import android.graphics.Outline
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -32,7 +34,6 @@ internal class PlayerMoreMenuIntegration(private val build: TargetBuild, private
         val destroy = PluginProfiles.method("more-dialog-destroy")
         val controller = PluginProfiles.field("more-dialog-controller")
         val playerMethod = PluginProfiles.method("player-action-sheet-method")
-        val player = playerMethod.declaringClass
         val dialogType = PluginProfiles.type(names.getString("dialogClass"))
         val scope = PluginScope()
         val owners = IdentityHashMap<Any, Dialog>()
@@ -47,7 +48,14 @@ internal class PlayerMoreMenuIntegration(private val build: TargetBuild, private
                 override fun afterHookedMethod(param: MethodHookParam) {
                     if (param.throwable != null) return
                     val owner = param.thisObject ?: return
-                    if (!player.isInstance(controller.get(owner))) return
+                    // Record every action-sheet dialog created by this class, not only
+                    // the player controller's own sheet. On 7.0.3 the phone player's
+                    // song menu is created from a track/queue controller, so the old
+                    // player-only filter made those menus silently fall back to the
+                    // native opaque sheet. Dialog.show still validates listId and
+                    // coordinatorId before replacing anything, so unrelated sheets
+                    // (share lyrics, quality, sleep) keep their native behavior.
+                    if (controller.get(owner) == null) return
                     val dialog = param.result as? Dialog ?: return
                     if (dialogType.isInstance(dialog)) owners[owner] = dialog
                 }
@@ -67,7 +75,7 @@ internal class PlayerMoreMenuIntegration(private val build: TargetBuild, private
                     if (dialog.window == null) return
                     val owner = owners.entries.firstOrNull { it.value === dialog }?.key ?: return
                     val surface = runCatching { Surface(activity, dialog, owner, list, container, downloads) }
-                        .onFailure { MediaRuntime.log("player_more_glass: preparation failed", it) }.getOrNull() ?: return
+                        .onFailure { MediaRuntime.log("player_more_glass: preparation failed", it); FileLogger.log("player_more_glass preparation failed", it) }.getOrNull() ?: return
                     surfaces[dialog] = surface
                     try {
                         surface.capture { ready ->
@@ -85,14 +93,14 @@ internal class PlayerMoreMenuIntegration(private val build: TargetBuild, private
                                 MediaRuntime.log("player_more_glass: first window shown with floating iOS menu")
                             }.onFailure {
                                 surface.close(); surfaces.remove(dialog)
-                                MediaRuntime.log("player_more_glass: native fallback", it)
+                                MediaRuntime.log("player_more_glass: native fallback", it); FileLogger.log("player_more_glass native fallback", it)
                                 nativeShow(dialog)
                             }
                         }
                         param.result = null
                     } catch (error: Throwable) {
                         surface.close(); surfaces.remove(dialog)
-                        MediaRuntime.log("player_more_glass: capture failed", error)
+                        MediaRuntime.log("player_more_glass: capture failed", error); FileLogger.log("player_more_glass capture failed", error)
                     }
                 }
             }, scope))
@@ -154,6 +162,9 @@ internal class PlayerMoreMenuIntegration(private val build: TargetBuild, private
         private val glass = PluginGlassHostView(MediaRuntime.glassContext(activity), bleedDp = 0).apply {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             isClickable = false; isFocusable = false
+            // Do NOT blur the glass host itself: RenderEffect on this view flattens the
+            // host backdrop pipeline into a plain gray surface. The host's own
+            // vibrancy/blur/lens path must stay intact.
         }
         private val backdrop = DialogWindowBackdrop(activity, glass, live = true)
         private val menu = IosPlayerMoreMenuView(activity, dark) { entry, view ->

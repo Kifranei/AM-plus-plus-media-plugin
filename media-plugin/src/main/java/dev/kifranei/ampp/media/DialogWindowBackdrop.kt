@@ -49,7 +49,7 @@ class DialogWindowBackdrop(
         if (!closed && consumer.isAttachedToWindow && source.isAttachedToWindow &&
             !activity.isFinishing && !activity.isDestroyed) {
             requestCopy { success ->
-                if (!success && ++failures == 3) MediaRuntime.log("dialog_backdrop: live window copy temporarily unavailable")
+                if (!success && ++failures == 3) { MediaRuntime.log("dialog_backdrop: live window copy temporarily unavailable"); FileLogger.log("dialog_backdrop: live window copy unavailable") }
                 schedule()
             }
         }
@@ -139,7 +139,7 @@ class DialogWindowBackdrop(
         if (live) consumer.removeOnAttachStateChangeListener(attached)
         image = null
         if (!copying) recycle()
-        if (live) MediaRuntime.log("dialog_backdrop: released live playback window after $frames frames")
+        if (live) { MediaRuntime.log("dialog_backdrop: released live playback window after $frames frames"); FileLogger.log("dialog_backdrop: released after $frames frames") }
     }
 
     private fun recycle() { bitmaps.forEach { if (!it.isRecycled) it.recycle() } }
